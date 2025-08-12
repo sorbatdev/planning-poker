@@ -9,11 +9,13 @@ body {
     color: #333;
     overflow: hidden;
 }
+
 h1 {
     font-size: 2em;
     margin: 20px 0;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
+
 #join-form {
     display: flex;
     flex-direction: column;
@@ -21,25 +23,32 @@ h1 {
     gap: 10px;
     margin-bottom: 20px;
 }
+
 #join-form input {
-    padding: 8px;
-    width: 200px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+    padding: 14px;
+    width: 250px;
+    font-size: 1.2em;
+    border: 2px solid #ccc;
+    border-radius: 8px;
 }
+
 #join-form button {
-    padding: 8px 16px;
+    padding: 14px 24px;
+    font-size: 1.2em;
     background: #4facfe;
     color: white;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
+    transition: transform 0.1s ease, background 0.3s ease;
 }
+
 #session-info {
     font-size: 1.2em;
     margin-bottom: 10px;
     display: none;
 }
+
 #table {
     position: relative;
     width: 80vw;
@@ -47,16 +56,19 @@ h1 {
     max-width: 800px;
     margin: auto;
 }
+
 .user {
     position: absolute;
     text-align: center;
     width: 120px;
     transform: translate(-50%, -50%);
 }
+
 .user-name {
     font-size: 1em;
     margin-bottom: 5px;
 }
+
 .card-placeholder {
     width: 100px;
     height: 150px;
@@ -67,16 +79,19 @@ h1 {
     font-size: 1.5em;
     font-weight: bold;
     color: white;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     transition: transform 0.3s ease;
 }
+
 .waiting {
     background: #ccc;
     color: #666;
 }
+
 .flip-container {
     perspective: 1000px;
 }
+
 .flipper {
     transition: 0.6s;
     transform-style: preserve-3d;
@@ -84,7 +99,9 @@ h1 {
     width: 100px;
     height: 150px;
 }
-.front, .back {
+
+.front,
+.back {
     backface-visibility: hidden;
     position: absolute;
     top: 0;
@@ -98,8 +115,9 @@ h1 {
     font-size: 2.5em;
     font-weight: bold;
     color: white;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
+
 .front {
     z-index: 2;
     transform: rotateY(0deg);
@@ -107,20 +125,25 @@ h1 {
     color: #333;
     font-size: 1em;
 }
+
 .back {
     transform: rotateY(180deg);
 }
+
 .flip-container.flipped .flipper {
     transform: rotateY(180deg);
 }
+
 .own .user-name {
     font-weight: bold;
 }
+
 #controls {
     display: none;
     gap: 10px;
     margin: 10px 0;
 }
+
 #controls button {
     padding: 8px 16px;
     background: #4facfe;
@@ -130,12 +153,15 @@ h1 {
     cursor: pointer;
     transition: transform 0.1s ease, background 0.3s ease;
 }
+
 #controls button:hover {
     background: #00f2fe;
 }
+
 #controls button:active {
     transform: scale(0.95);
 }
+
 #card-deck {
     position: fixed;
     bottom: 0;
@@ -144,11 +170,12 @@ h1 {
     justify-content: center;
     gap: 10px;
     padding: 10px;
-    background: rgba(255,255,255,0.8);
+    background: rgba(255, 255, 255, 0.8);
     width: 100%;
     overflow-x: auto;
     display: none;
 }
+
 .card {
     width: 80px;
     height: 120px;
@@ -161,32 +188,43 @@ h1 {
     font-weight: bold;
     color: white;
     cursor: pointer;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     transition: transform 0.3s ease;
 }
+
 .card:hover {
     transform: translateY(-5px);
 }
+
 .card.selected {
     transform: scale(1.05);
     border: 2px solid #fff;
 }
+
 .question {
     background: linear-gradient(135deg, #667eea, #764ba2);
 }
+
 .coffee {
     background: linear-gradient(135deg, #ff9966, #ff5e62);
     font-size: 1.5em;
 }
+
 @media (max-width: 600px) {
-    .card-placeholder, .flipper, .front, .back {
+
+    .card-placeholder,
+    .flipper,
+    .front,
+    .back {
         width: 60px;
         height: 90px;
         font-size: 1.5em;
     }
+
     .user {
         width: 80px;
     }
+
     .card {
         width: 50px;
         height: 75px;

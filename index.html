@@ -13,10 +13,26 @@
 <body>
     <h1>Planning Poker</h1>
     <div id="join-form">
-        <input id="name-input" placeholder="Your Name" required>
-        <input id="session-input" placeholder="Session ID (for joining)">
-        <button id="create-session">Create Session</button>
-        <button id="join-session">Join Session</button>
+        <!-- Initial choice buttons -->
+        <div id="choice-buttons">
+            <button id="show-create">Create Session</button>
+            <button id="show-join">Join Session</button>
+        </div>
+
+        <!-- Create form -->
+        <div id="create-form" style="display:none; flex-direction:column; align-items:center; gap:10px;">
+            <input id="name-create" placeholder="Your Name" required>
+            <button id="create-session">Start</button>
+            <button class="back-btn">⬅ Back</button>
+        </div>
+
+        <!-- Join form -->
+        <div id="join-fields" style="display:none; flex-direction:column; align-items:center; gap:10px;">
+            <input id="name-join" placeholder="Your Name" required>
+            <input id="session-input" placeholder="Session ID" required>
+            <button id="join-session">Join</button>
+            <button class="back-btn">⬅ Back</button>
+        </div>
     </div>
     <div id="session-info"></div>
     <div id="controls">
@@ -37,6 +53,26 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
+
+        // Show/hide create/join forms
+        document.getElementById("show-create").addEventListener("click", () => {
+            document.getElementById("choice-buttons").style.display = "none";
+            document.getElementById("create-form").style.display = "flex";
+        });
+
+        document.getElementById("show-join").addEventListener("click", () => {
+            document.getElementById("choice-buttons").style.display = "none";
+            document.getElementById("join-fields").style.display = "flex";
+        });
+
+        // Back button logic
+        document.querySelectorAll(".back-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                document.getElementById("create-form").style.display = "none";
+                document.getElementById("join-fields").style.display = "none";
+                document.getElementById("choice-buttons").style.display = "flex";
+            });
+        });
 
         document.getElementById("create-session").addEventListener("click", createSession);
         document.getElementById("join-session").addEventListener("click", joinSession);
@@ -63,7 +99,9 @@
 
         // Create session
         function createSession() {
-            userName = document.getElementById('name-input').value.trim();
+            // For create
+            userName = document.getElementById('name-create')?.value.trim();
+
             if (!userName) return alert('Enter your name');
             sessionId = generateId();
             joinUser();
@@ -71,7 +109,9 @@
 
         // Join session
         function joinSession() {
-            userName = document.getElementById('name-input').value.trim();
+            // For join
+            userName = document.getElementById('name-join')?.value.trim();
+
             sessionId = document.getElementById('session-input').value.trim();
             if (!userName || !sessionId) return alert('Enter name and session ID');
             joinUser();
@@ -83,7 +123,11 @@
             sessionRef.once('value').then(snap => {
                 // Initialize if new session
                 if (!snap.exists()) {
-                    sessionRef.set({ revealed: false, users: {} });
+                    sessionRef.set({
+                        revealed: false,
+                        users: {},
+                        createdAt: Date.now()
+                    });
                 }
 
                 let data = snap.val() || { users: {} };
@@ -107,7 +151,22 @@
         function listenToSession() {
             db.ref('sessions/' + sessionId).on('value', snap => {
                 const data = snap.val();
-                if (!data) return;
+
+                if (!data) {
+                    return;
+                }
+
+                if (data.createdAt) {
+                    const elapsedMinutes = (Date.now() - data.createdAt) / (1000 * 60);
+
+                    // After 120 minutes
+                    if (elapsedMinutes >= 120) {
+                        alert("Session limit reached!");
+                        db.ref('sessions/' + sessionId).remove();
+                        location.reload();
+                    }
+                }
+
                 revealed = data.revealed;
                 users = data.users || {};
                 renderTable();
