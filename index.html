@@ -8,183 +8,7 @@
     <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-database-compat.js"></script>
     <link rel="stylesheet" href="styles.css">
-    <script>
-        const firebaseConfig = {
-            apiKey: "{{FIREBASE_API_KEY}}",
-            authDomain: "{{FIREBASE_AUTH_DOMAIN}}",
-            databaseURL: "{{FIREBASE_DATABASE_URL}}",
-            projectId: "{{FIREBASE_PROJECT_ID}}",
-            storageBucket: "{{FIREBASE_STORAGE_BUCKET}}",
-            messagingSenderId: "{{FIREBASE_MESSAGING_SENDER_ID}}",
-            appId: "{{FIREBASE_APP_ID}}"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
-        const values = ['1', '2', '4', '6', '8', '10', '12', '14', '16', '20', '22', '24', '30' '?'];
-        let sessionId = null;
-        let userId = null;
-        let userName = null;
-        let revealed = false;
-        let users = {};
-
-        const table = document.getElementById('table');
-        const deck = document.getElementById('card-deck');
-        const joinForm = document.getElementById('join-form');
-        const sessionInfo = document.getElementById('session-info');
-        const controls = document.getElementById('controls');
-
-        // Generate random session ID
-        function generateId(length = 6) {
-            return Math.random().toString(36).substring(2, 2 + length).toUpperCase();
-        }
-
-        // Create session
-        function createSession() {
-            userName = document.getElementById('name-input').value.trim();
-            if (!userName) return alert('Enter your name');
-            sessionId = generateId();
-            joinUser();
-        }
-
-        // Join session
-        function joinSession() {
-            userName = document.getElementById('name-input').value.trim();
-            sessionId = document.getElementById('session-input').value.trim();
-            if (!userName || !sessionId) return alert('Enter name and session ID');
-            joinUser();
-        }
-
-        // Join logic
-        function joinUser() {
-            const sessionRef = db.ref('sessions/' + sessionId);
-            sessionRef.once('value').then(snap => {
-                // Initialize if new session
-                if (!snap.exists()) {
-                    sessionRef.set({ revealed: false, users: {} });
-                }
-
-                let data = snap.val() || { users: {} };
-                const userCount = Object.keys(data.users || {}).length;
-                if (userCount >= 10) return alert('Session full (max 10)');
-                userId = sessionRef.child('users').push().key;
-                sessionRef.child('users/' + userId).set({ name: userName, choice: null });
-                sessionRef.child('users/' + userId).onDisconnect().remove();
-
-                joinForm.style.display = 'none';
-                sessionInfo.textContent = `Session ID: ${sessionId} (share this!)`;
-                sessionInfo.style.display = 'block';
-                controls.style.display = 'flex';
-                deck.style.display = 'flex';
-                setupDeck();
-                listenToSession();
-            });
-        }
-
-        // Listen for changes
-        function listenToSession() {
-            db.ref('sessions/' + sessionId).on('value', snap => {
-                const data = snap.val();
-                if (!data) return;
-                revealed = data.revealed;
-                users = data.users || {};
-                renderTable();
-            });
-        }
-
-        // Render users around table
-        function renderTable() {
-            table.innerHTML = '';
-            const userList = Object.entries(users);
-            const n = userList.length;
-            userList.forEach(([uid, user], i) => {
-                const angle = (360 / n) * i;
-                const radius = Math.min(40, 20 + n * 2); // Adjust radius based on n
-                const x = 50 + radius * Math.cos(angle * Math.PI / 180);
-                const y = 50 + radius * Math.sin(angle * Math.PI / 180);
-
-                const userDiv = document.createElement('div');
-                userDiv.classList.add('user');
-                if (uid === userId) userDiv.classList.add('own');
-                userDiv.style.left = `${x}%`;
-                userDiv.style.top = `${y}%`;
-
-                const nameP = document.createElement('p');
-                nameP.classList.add('user-name');
-                nameP.textContent = user.name;
-                userDiv.appendChild(nameP);
-
-                if (!user.choice) {
-                    const waiting = document.createElement('div');
-                    waiting.classList.add('card-placeholder', 'waiting');
-                    waiting.textContent = 'Waiting';
-                    userDiv.appendChild(waiting);
-                } else {
-                    const flipContainer = document.createElement('div');
-                    flipContainer.classList.add('flip-container');
-                    if (revealed) flipContainer.classList.add('flipped');
-
-                    const flipper = document.createElement('div');
-                    flipper.classList.add('flipper');
-
-                    const front = document.createElement('div');
-                    front.classList.add('front');
-                    front.textContent = 'Card';
-
-                    const back = document.createElement('div');
-                    back.classList.add('back');
-                    back.textContent = user.choice;
-                    back.style.background = getCardBackground(user.choice);
-
-                    flipper.appendChild(front);
-                    flipper.appendChild(back);
-                    flipContainer.appendChild(flipper);
-                    userDiv.appendChild(flipContainer);
-                }
-
-                table.appendChild(userDiv);
-            });
-        }
-
-        // Get card background based on value
-        function getCardBackground(val) {
-            if (val === '?') return 'linear-gradient(135deg, #667eea, #764ba2)';
-            if (val === '☕') return 'linear-gradient(135deg, #ff9966, #ff5e62)';
-            return 'linear-gradient(135deg, #4facfe, #00f2fe)';
-        }
-
-        // Setup selection deck
-        function setupDeck() {
-            values.forEach(val => {
-                const card = document.createElement('div');
-                card.classList.add('card');
-                if (val === '?') card.classList.add('question');
-                if (val === '☕') card.classList.add('coffee');
-                card.textContent = val;
-                card.onclick = () => selectCard(val);
-                deck.appendChild(card);
-            });
-        }
-
-        // Select card
-        function selectCard(val) {
-            db.ref('sessions/' + sessionId + '/users/' + userId).update({ choice: val });
-        }
-
-        // Reveal
-        function revealCards() {
-            db.ref('sessions/' + sessionId).update({ revealed: true });
-        }
-
-        // Reset
-        function resetRound() {
-            const updates = { revealed: false };
-            Object.keys(users).forEach(uid => {
-                updates[`users/${uid}/choice`] = null;
-            });
-            db.ref('sessions/' + sessionId).update(updates);
-        }
-    </script>
+    <script src="script.js"></script>
 </head>
 
 <body>
@@ -192,13 +16,13 @@
     <div id="join-form">
         <input id="name-input" placeholder="Your Name" required>
         <input id="session-input" placeholder="Session ID (for joining)">
-        <button onclick="createSession()">Create Session</button>
-        <button onclick="joinSession()">Join Session</button>
+        <button id="create-session">Create Session</button>
+        <button id="join-session">Join Session</button>
     </div>
     <div id="session-info"></div>
     <div id="controls">
-        <button onclick="revealCards()">Reveal</button>
-        <button onclick="resetRound()">Reset</button>
+        <button id="reveal-cards">Reveal</button>
+        <button id="reset-round">Reset</button>
     </div>
     <div id="table"></div>
     <div id="card-deck" class="card-container"></div>
