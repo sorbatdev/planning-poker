@@ -210,6 +210,33 @@ h1 {
     font-size: 1.5em;
 }
 
+.transfer-host-btn {
+    padding: 4px 8px;
+    background: #28a745;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8em;
+    margin-top: 5px;
+    transition: background 0.3s ease, transform 0.1s ease;
+}
+
+.transfer-host-btn:hover {
+    background: #218838;
+}
+
+.transfer-host-btn:active {
+    transform: scale(0.95);
+}
+
+#average-display {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    color: #333;
+    font-weight: bold;
+}
+
 @media (max-width: 600px) {
 
     .card-placeholder,
@@ -229,5 +256,10 @@ h1 {
         width: 50px;
         height: 75px;
         font-size: 1.2em;
+    }
+
+    .transfer-host-btn {
+        font-size: 0.7em;
+        padding: 3px 6px;
     }
 }
