@@ -111,6 +111,10 @@
                 return alert('Enter your name');
             }
 
+            if (user_name.length > 9) {
+                return alert("Username cant be bigger than 9 characters!");
+            }
+
             session_id = generateId();
 
             joinUser();
@@ -121,6 +125,10 @@
             session_id = document.getElementById('session-input').value.trim();
             if (!user_name || !session_id) {
                 return alert('Enter name and session ID');
+            }
+
+            if (user_name.length > 9) {
+                return alert("Username cant be bigger than 9 characters!");
             }
 
             joinUser();
@@ -156,19 +164,15 @@
 
                 user_id = session_ref.child('users').push().key;
                 session_ref.child('users/' + user_id).set({ name: user_name, choice: null, is_host: is_host });
-                session_ref.child('users/' + user_id).onDisconnect().remove();
+                session_ref.child('users/' + user_id).onDisconnect().remove(_ => {
+                    session_ref.update({ host: userCount === 0 ? null : Object.keys(data.users || {})[0] || null });
+                });
 
                 // If there's no host, assign one
                 if (!data.host) {
                     session_ref.update({ host: user_id });
-                    console.log(`Made host: ${user_id}`);
                     is_host = true;
                 }
-
-                // Reassign the host if the one before leaves.
-                session_ref.child('users/' + user_id).onDisconnect().update({
-                    '/host': userCount === 0 ? null : Object.keys(data.users || {})[0] || null
-                });
 
                 join_form.style.display = 'none';
                 session_info.textContent = `Session ID: ${session_id} (share this!)`;
@@ -225,7 +229,9 @@
 
                 const user_div = document.createElement('div');
                 user_div.classList.add('user');
-                if (uid === user_id) user_div.classList.add('own');
+                if (uid === user_id) {
+                    user_div.classList.add('own')
+                };
                 user_div.style.left = `${x}%`;
                 user_div.style.top = `${y}%`;
 
@@ -279,7 +285,6 @@
                     list_item.classList.add('own');
                 }
                 const name_span = document.createElement('span');
-                console.log(db.ref('sessions/' + session_id + '/host'));
                 name_span.textContent = user.name + (uid == user_id ? ' (You)' : '') + (uid === host_id ? ' (Host)' : '');
                 list_item.appendChild(name_span);
 
@@ -298,7 +303,6 @@
         // Get card background based on value
         function getCardBackground(val) {
             if (val === '?') return 'linear-gradient(135deg, #667eea, #764ba2)';
-            if (val === '☕') return 'linear-gradient(135deg, #ff9966, #ff5e62)';
             return 'linear-gradient(135deg, #4facfe, #00f2fe)';
         }
 
@@ -359,6 +363,7 @@
             if (!is_host) {
                 return;
             }
+
             const updates = { revealed: false };
             Object.keys(users).forEach(uid => {
                 updates[`users/${uid}/choice`] = null;

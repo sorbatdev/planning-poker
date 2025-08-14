@@ -178,6 +178,7 @@ h1 {
 }
 
 .back {
+    font-size: 1.5em;
     transform: rotateY(180deg);
 }
 
@@ -248,7 +249,8 @@ h1 {
 }
 
 .card.selected {
-    transform: scale(1.05);
+    background: linear-gradient(135deg, #ff6b6b, #ff8e53);
+    /* Bright red-orange gradient */
     border: 2px solid #fff;
 }
 
