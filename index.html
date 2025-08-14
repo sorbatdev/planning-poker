@@ -85,6 +85,7 @@
         let userName = null;
         let revealed = false;
         let users = {};
+        let isHost = false;
 
         const table = document.getElementById('table');
         const deck = document.getElementById('card-deck');
@@ -132,9 +133,15 @@
 
                 let data = snap.val() || { users: {} };
                 const userCount = Object.keys(data.users || {}).length;
-                if (userCount >= 10) return alert('Session full (max 10)');
+                if (userCount >= 10) {
+                    return alert('Session full (max 10)');
+                }
                 userId = sessionRef.child('users').push().key;
-                sessionRef.child('users/' + userId).set({ name: userName, choice: null });
+                if (userCount == 0) {
+                    isHost = true;
+                }
+
+                sessionRef.child('users/' + userId).set({ name: userName, choice: null, isHost: isHost });
                 sessionRef.child('users/' + userId).onDisconnect().remove();
 
                 joinForm.style.display = 'none';
@@ -254,11 +261,17 @@
 
         // Reveal
         function revealCards() {
+            if (!isHost) {
+                return;
+            }
             db.ref('sessions/' + sessionId).update({ revealed: true });
         }
 
         // Reset
         function resetRound() {
+            if (!isHost) {
+                return;
+            }
             const updates = { revealed: false };
             Object.keys(users).forEach(uid => {
                 updates[`users/${uid}/choice`] = null;
