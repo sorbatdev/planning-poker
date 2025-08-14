@@ -15,30 +15,31 @@
     <div id="join-form">
         <!-- Initial choice buttons -->
         <div id="choice-buttons">
-            <button id="show-create">Create Session</button>
-            <button id="show-join">Join Session</button>
+            <button id="show-create" onclick="showCreate()">Create Session</button>
+            <button id="show-join" onclick="showJoin()">Join Session</button>
         </div>
 
         <!-- Create form -->
         <div id="create-form" style="display:none; flex-direction:column; align-items:center; gap:10px;">
             <input id="name-create" placeholder="Your Name" required>
-            <button id="create-session">Start</button>
-            <button class="back-btn">⬅ Back</button>
+            <button id="create-session" onclick="createSession()">Start</button>
+            <button class="back-btn" onclick="goBack()">⬅ Back</button>
         </div>
 
         <!-- Join form -->
         <div id="join-fields" style="display:none; flex-direction:column; align-items:center; gap:10px;">
             <input id="name-join" placeholder="Your Name" required>
             <input id="session-input" placeholder="Session ID" required>
-            <button id="join-session">Join</button>
-            <button class="back-btn">⬅ Back</button>
+            <button id="join-session" onclick="joinSession()">Join</button>
+            <button class="back-btn" onclick="goBack()">⬅ Back</button>
         </div>
     </div>
     <div id="session-info"></div>
     <div id="controls">
-        <button id="reveal-cards">Reveal</button>
-        <button id="reset-round">Reset</button>
+        <button id="reveal-cards" onclick="revealCards()">Reveal</button>
+        <button id="reset-round" onclick="resetRound()">Reset</button>
     </div>
+    <div id="user-list"></div>
     <div id="table"></div>
     <div id="card-deck" class="card-container"></div>
     <script>
@@ -54,31 +55,44 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Show/hide create/join forms
-        document.getElementById("show-create").addEventListener("click", () => {
-            document.getElementById("choice-buttons").style.display = "none";
-            document.getElementById("create-form").style.display = "flex";
-        });
+        /// ======================================
+        ///           Document elements
+        /// ======================================
+        const table = document.getElementById('table');
+        const deck = document.getElementById('card-deck');
+        const join_form = document.getElementById('join-form');
+        const session_info = document.getElementById('session-info');
+        const controls = document.getElementById('controls');
+        const average_display = document.createElement('div');
+        const user_list_container = document.getElementById('user-list');
+        user_list_container.style.display = "none";
 
-        document.getElementById("show-join").addEventListener("click", () => {
-            document.getElementById("choice-buttons").style.display = "none";
-            document.getElementById("join-fields").style.display = "flex";
-        });
+        average_display.id = 'average-display';
+        session_info.after(average_display);
 
-        // Back button logic
-        document.querySelectorAll(".back-btn").forEach(btn => {
-            btn.addEventListener("click", () => {
-                document.getElementById("create-form").style.display = "none";
-                document.getElementById("join-fields").style.display = "none";
-                document.getElementById("choice-buttons").style.display = "flex";
-            });
-        });
+        const choice_buttons = document.getElementById("choice-buttons");
+        const create_lobby_button = document.getElementById("create-form");
+        const join_lobby_button = document.getElementById("join-fields");
 
-        document.getElementById("create-session").addEventListener("click", createSession);
-        document.getElementById("join-session").addEventListener("click", joinSession);
-        document.getElementById("reveal-cards").addEventListener("click", revealCards);
-        document.getElementById("reset-round").addEventListener("click", resetRound);
+        function showCreate() {
+            choice_buttons.style.display = "none";
+            create_lobby_button.style.display = "flex";
+        }
 
+        function showJoin() {
+            choice_buttons.style.display = "none";
+            join_lobby_button.style.display = "flex";
+        }
+
+        function goBack() {
+            create_lobby_button.style.display = "none";
+            join_lobby_button.style.display = "none";
+            choice_buttons.style.display = "flex";
+        }
+
+        /// ======================================
+        ///               Variables
+        /// ======================================
         const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12', '14', '16', '20', '22', '24', '26', '28', '30', '?'];
         let session_id = null;
         let user_id = null;
@@ -87,38 +101,28 @@
         let users = {};
         let is_host = false;
 
-        const table = document.getElementById('table');
-        const deck = document.getElementById('card-deck');
-        const joinForm = document.getElementById('join-form');
-        const session_info = document.getElementById('session-info');
-        const sessionInfo = document.getElementById('session-info');
-        const controls = document.getElementById('controls');
-        const average_display = document.createElement('div');
-        average_display.id = 'average-display';
-        session_info.after(average_display);
-
-        // Generate random session ID
         function generateId(length = 6) {
             return Math.random().toString(36).substring(2, 2 + length).toUpperCase();
         }
 
-        // Create session
         function createSession() {
-            // For create
             user_name = document.getElementById('name-create')?.value.trim();
+            if (!user_name) {
+                return alert('Enter your name');
+            }
 
-            if (!user_name) return alert('Enter your name');
             session_id = generateId();
+
             joinUser();
         }
 
-        // Join session
         function joinSession() {
-            // For join
             user_name = document.getElementById('name-join')?.value.trim();
-
             session_id = document.getElementById('session-input').value.trim();
-            if (!user_name || !session_id) return alert('Enter name and session ID');
+            if (!user_name || !session_id) {
+                return alert('Enter name and session ID');
+            }
+
             joinUser();
         }
 
@@ -145,6 +149,11 @@
                     return alert('Session full (max 10)');
                 }
 
+                const existing_names = Object.values(data.users || {}).map(user => user.name);
+                if (existing_names.includes(user_name)) {
+                    return alert('Username already exists in this session. Please choose a different name.');
+                }
+
                 user_id = session_ref.child('users').push().key;
                 session_ref.child('users/' + user_id).set({ name: user_name, choice: null, is_host: is_host });
                 session_ref.child('users/' + user_id).onDisconnect().remove();
@@ -161,11 +170,12 @@
                     '/host': userCount === 0 ? null : Object.keys(data.users || {})[0] || null
                 });
 
-                joinForm.style.display = 'none';
-                sessionInfo.textContent = `Session ID: ${session_id} (share this!)`;
-                sessionInfo.style.display = 'block';
+                join_form.style.display = 'none';
+                session_info.textContent = `Session ID: ${session_id} (share this!)`;
+                session_info.style.display = 'block';
                 controls.style.display = 'flex';
                 deck.style.display = 'flex';
+                user_list_container.style.display = "block";
                 setupDeck();
                 listenToSession();
             });
@@ -198,6 +208,7 @@
                 average_display.textContent = is_revealed && data.average ? `Average: ${data.average}` : is_revealed ? 'Average: N/A' : '';
 
                 renderTable();
+                render_user_list(data.host);
             });
         }
 
@@ -208,9 +219,9 @@
             const n = user_list.length;
             user_list.forEach(([uid, user], i) => {
                 const angle = (360 / n) * i;
-                const radius = Math.min(60, 20 + n * 6); // Adjust radius based on n
+                const radius = Math.min(60, 20 + n * 4); // Adjust radius based on n
                 const x = 50 + radius * Math.cos(angle * Math.PI / 180);
-                const y = 30 + radius * Math.sin(angle * Math.PI / 180);
+                const y = 40 + radius * Math.sin(angle * Math.PI / 180);
 
                 const user_div = document.createElement('div');
                 user_div.classList.add('user');
@@ -218,24 +229,16 @@
                 user_div.style.left = `${x}%`;
                 user_div.style.top = `${y}%`;
 
-                const name_paragraph = document.createElement('p');
-                name_paragraph.classList.add('user-name');
-                name_paragraph.textContent = user.name;
-                user_div.appendChild(name_paragraph);
-
-                // Add Transfer Host button for non-host users, visible only to host
-                if (is_host && uid !== user_id) {
-                    const transfer_button = document.createElement('button');
-                    transfer_button.classList.add('transfer-host-btn');
-                    transfer_button.textContent = 'Make Host';
-                    transfer_button.onclick = () => transferHost(uid);
-                    user_div.appendChild(transfer_button);
-                }
+                // Modified/Added in render_table
+                const name_span = document.createElement('span');
+                name_span.classList.add('user-name');
+                name_span.textContent = user.name + (uid === db.ref('sessions/' + session_id + '/host').key ? ' (Host)' : '');
 
                 if (!user.choice) {
                     const waiting = document.createElement('div');
                     waiting.classList.add('card-placeholder', 'waiting');
                     waiting.textContent = 'Waiting';
+                    waiting.appendChild(name_span);
                     user_div.appendChild(waiting);
                 } else {
                     const flip_container = document.createElement('div');
@@ -254,6 +257,7 @@
                     back.classList.add('back');
                     back.textContent = user.choice;
                     back.style.background = getCardBackground(user.choice);
+                    back.appendChild(name_span);
 
                     flipper.appendChild(front);
                     flipper.appendChild(back);
@@ -262,6 +266,32 @@
                 }
 
                 table.appendChild(user_div);
+            });
+        }
+
+        function render_user_list(host_id) {
+            user_list_container.innerHTML = '';
+            const user_list = Object.entries(users);
+            user_list.forEach(([uid, user]) => {
+                const list_item = document.createElement('div');
+                list_item.classList.add('user-list-item');
+                if (uid === user_id) {
+                    list_item.classList.add('own');
+                }
+                const name_span = document.createElement('span');
+                console.log(db.ref('sessions/' + session_id + '/host'));
+                name_span.textContent = user.name + (uid == user_id ? ' (You)' : '') + (uid === host_id ? ' (Host)' : '');
+                list_item.appendChild(name_span);
+
+                if (is_host && uid !== user_id) {
+                    const transfer_btn = document.createElement('button');
+                    transfer_btn.textContent = 'Make Host';
+                    transfer_btn.classList.add('transfer-host-btn');
+                    transfer_btn.onclick = () => transferHost(uid);
+                    list_item.appendChild(transfer_btn);
+                }
+
+                user_list_container.appendChild(list_item);
             });
         }
 
