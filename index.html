@@ -95,7 +95,7 @@
         /// ======================================
         const values = [
             '1', '2', '3', '4', '5', '6', '7', '8', '9',
-            '10', '12', '14', '16',
+            '10', '12', '14', '16', '18',
             '20', '22', '24', '26', '28',
             '30', '32', '34', '36', '38',
             '40'
@@ -207,7 +207,7 @@
                 average_display.textContent = is_revealed && data.average ? `Average: ${data.average}` : is_revealed ? 'Average: N/A' : '';
 
                 renderTable();
-                render_user_list(data.host);
+                renderUserList(data.host);
             });
         }
 
@@ -276,7 +276,7 @@
             });
         }
 
-        function render_user_list(host_id) {
+        function renderUserList(host_id) {
             user_list_container.innerHTML = '';
             const user_list = Object.entries(users);
             user_list.forEach(([uid, user]) => {
@@ -320,6 +320,10 @@
         }
 
         function selectCard(val) {
+            if (is_revealed) {
+                return;
+            }
+
             // Remove .selected from all cards in deck
             const cards = deck.querySelectorAll('.card');
             cards.forEach(card => card.classList.remove('selected'));
@@ -365,7 +369,7 @@
                 return;
             }
 
-            const updates = { revealed: false };
+            const updates = { revealed: false, average: null };
             Object.keys(users).forEach(uid => {
                 updates[`users/${uid}/choice`] = null;
             });
