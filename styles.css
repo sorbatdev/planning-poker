@@ -192,6 +192,8 @@ h1 {
 
 .own .user-name {
     font-weight: bold;
+    z-index: 2;
+    font-size: 2.5em;
 }
 
 #controls {

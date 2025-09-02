@@ -247,24 +247,27 @@
                 } else {
                     const flip_container = document.createElement('div');
                     flip_container.classList.add('flip-container');
-                    if (is_revealed) {
-                        flip_container.classList.add('flipped');
-                    }
+
                     const flipper = document.createElement('div');
                     flipper.classList.add('flipper');
 
                     const front = document.createElement('div');
                     front.classList.add('front');
                     front.textContent = 'Card';
-
-                    const back = document.createElement('div');
-                    back.classList.add('back');
-                    back.textContent = user.choice;
-                    back.style.background = getCardBackground(user.choice);
-                    back.appendChild(name_span);
+                    front.appendChild(name_span);
 
                     flipper.appendChild(front);
-                    flipper.appendChild(back);
+                    if (is_revealed) {
+                        const back = document.createElement('div');
+                        back.classList.add('back');
+                        back.textContent = user.choice;
+                        back.style.background = getCardBackground(user.choice);
+                        back.appendChild(name_span);
+                        flipper.appendChild(back);
+                        flip_container.classList.add('flipped');
+                    }
+
+                    flipper.appendChild(front);
                     flip_container.appendChild(flipper);
                     user_div.appendChild(flip_container);
                 }
