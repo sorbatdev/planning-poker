@@ -93,7 +93,13 @@
         /// ======================================
         ///               Variables
         /// ======================================
-        const values = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '12', '14', '16', '20', '22', '24', '26', '28', '30', '32', '34', '36', '38', '40'];
+        const values = [
+            '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            '10', '12', '14', '16',
+            '20', '22', '24', '26', '28',
+            '30', '32', '34', '36', '38',
+            '40'
+        ];
         let session_id = null;
         let user_id = null;
         let user_name = null;
@@ -197,17 +203,6 @@
                 is_revealed = data.revealed;
                 users = data.users || {};
                 is_host = data.host === user_id;
-
-                if (data.createdAt) {
-                    const elapsed_mins = (Date.now() - data.createdAt) / (1000 * 60);
-
-                    // After 120 minutes
-                    if (elapsed_mins >= 120) {
-                        alert("Session limit reached!");
-                        db.ref('sessions/' + session_id).remove();
-                        location.reload();
-                    }
-                }
 
                 average_display.textContent = is_revealed && data.average ? `Average: ${data.average}` : is_revealed ? 'Average: N/A' : '';
 
