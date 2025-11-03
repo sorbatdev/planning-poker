@@ -4,45 +4,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planning Poker</title>
+    <title>Planning Poker - Agile Estimation Tool</title>
+    <meta name="description"
+        content="Free online Planning Poker tool for agile teams. Real-time collaboration for story point estimation.">
     <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-database-compat.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-    <h1>Planning Poker</h1>
-    <div id="join-form">
-        <!-- Initial choice buttons -->
-        <div id="choice-buttons">
-            <button id="show-create" onclick="showCreate()">Create Session</button>
-            <button id="show-join" onclick="showJoin()">Join Session</button>
+    <div class="app-container">
+        <header>
+            <h1>Planning Poker</h1>
+            <div id="session-info" class="session-info"></div>
+        </header>
+
+        <!-- Login/Join Section -->
+        <div id="join-form" class="join-form">
+            <div class="form-card">
+                <h2>Start Your Session</h2>
+
+                <!-- Initial choice buttons -->
+                <div id="choice-buttons" class="choice-buttons">
+                    <button class="btn btn-primary" onclick="showCreate()">Create New Session</button>
+                    <button class="btn btn-secondary" onclick="showJoin()">Join Existing Session</button>
+                </div>
+
+                <!-- Create form -->
+                <div id="create-form" class="form-fields" style="display:none;">
+                    <input id="name-create" class="input-field" placeholder="Your Name" maxlength="9" required>
+                    <button class="btn btn-success" onclick="createSession()">Start Session</button>
+                    <button class="btn btn-ghost" onclick="goBack()">← Back</button>
+                </div>
+
+                <!-- Join form -->
+                <div id="join-fields" class="form-fields" style="display:none;">
+                    <input id="name-join" class="input-field" placeholder="Your Name" maxlength="9" required>
+                    <input id="session-input" class="input-field" placeholder="Session ID" required>
+                    <button class="btn btn-success" onclick="joinSession()">Join Session</button>
+                    <button class="btn btn-ghost" onclick="goBack()">← Back</button>
+                </div>
+            </div>
         </div>
 
-        <!-- Create form -->
-        <div id="create-form" style="display:none; flex-direction:column; align-items:center; gap:10px;">
-            <input id="name-create" placeholder="Your Name" required>
-            <button id="create-session" onclick="createSession()">Start</button>
-            <button class="back-btn" onclick="goBack()">⬅ Back</button>
-        </div>
+        <!-- Game Area -->
+        <div id="game-area" class="game-area" style="display:none;">
+            <!-- Controls -->
+            <div id="controls" class="controls">
+                <button id="reveal-cards" class="btn btn-reveal" onclick="revealCards()">
+                    <span class="btn-icon">👁️</span> Reveal Cards
+                </button>
+                <button id="reset-round" class="btn btn-reset" onclick="resetRound()">
+                    <span class="btn-icon">🔄</span> New Round
+                </button>
+                <div id="average-display" class="average-display"></div>
+            </div>
 
-        <!-- Join form -->
-        <div id="join-fields" style="display:none; flex-direction:column; align-items:center; gap:10px;">
-            <input id="name-join" placeholder="Your Name" required>
-            <input id="session-input" placeholder="Session ID" required>
-            <button id="join-session" onclick="joinSession()">Join</button>
-            <button class="back-btn" onclick="goBack()">⬅ Back</button>
+            <!-- Poker Table Area -->
+            <div id="table-container" class="table-container">
+                <div id="poker-table" class="poker-table">
+                    <div class="table-felt">
+                        <div id="table-center" class="table-center">
+                            <div id="round-status" class="round-status">
+                                <span class="status-text">Choose your card</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="user-cards" class="user-cards"></div>
+            </div>
+
+            <!-- User List Sidebar -->
+            <div id="user-list" class="user-list">
+                <h3>Players</h3>
+                <div id="user-list-items"></div>
+            </div>
+
+            <!-- Card Deck -->
+            <div id="card-deck" class="card-deck">
+                <div class="deck-container"></div>
+            </div>
         </div>
     </div>
-    <div id="session-info"></div>
-    <div id="controls">
-        <button id="reveal-cards" onclick="revealCards()">Reveal</button>
-        <button id="reset-round" onclick="resetRound()">Reset</button>
-    </div>
-    <div id="user-list"></div>
-    <div id="table"></div>
-    <div id="card-deck" class="card-container"></div>
+
     <script>
+        // Firebase Configuration
         const firebaseConfig = {
             apiKey: "{{FIREBASE_API_KEY}}",
             authDomain: "{{FIREBASE_AUTH_DOMAIN}}",
@@ -52,330 +98,467 @@
             messagingSenderId: "{{FIREBASE_MESSAGING_SENDER_ID}}",
             appId: "{{FIREBASE_APP_ID}}"
         };
+
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        /// ======================================
-        ///           Document elements
-        /// ======================================
-        const table = document.getElementById('table');
-        const deck = document.getElementById('card-deck');
-        const join_form = document.getElementById('join-form');
-        const session_info = document.getElementById('session-info');
-        const controls = document.getElementById('controls');
-        const average_display = document.createElement('div');
-        const user_list_container = document.getElementById('user-list');
-        user_list_container.style.display = "none";
+        // ======================================
+        //           State Management
+        // ======================================
+        const state = {
+            sessionId: null,
+            userId: null,
+            userName: null,
+            isRevealed: false,
+            isHost: false,
+            users: {},
+            selectedCard: null
+        };
 
-        average_display.id = 'average-display';
-        session_info.after(average_display);
-
-        const choice_buttons = document.getElementById("choice-buttons");
-        const create_lobby_button = document.getElementById("create-form");
-        const join_lobby_button = document.getElementById("join-fields");
-
-        function showCreate() {
-            choice_buttons.style.display = "none";
-            create_lobby_button.style.display = "flex";
-        }
-
-        function showJoin() {
-            choice_buttons.style.display = "none";
-            join_lobby_button.style.display = "flex";
-        }
-
-        function goBack() {
-            create_lobby_button.style.display = "none";
-            join_lobby_button.style.display = "none";
-            choice_buttons.style.display = "flex";
-        }
-
-        /// ======================================
-        ///               Variables
-        /// ======================================
-        const values = [
+        const cardValues = [
             '1', '2', '3', '4', '5', '6', '7', '8', '9',
             '10', '12', '14', '16', '18',
             '20', '22', '24', '26', '28',
             '30', '32', '34', '36', '38',
-            '40'
+            '40', '?', '☕'
         ];
-        let session_id = null;
-        let user_id = null;
-        let user_name = null;
-        let is_revealed = false;
-        let users = {};
-        let is_host = false;
 
+        // ======================================
+        //           DOM Elements Cache
+        // ======================================
+        const elements = {
+            joinForm: document.getElementById('join-form'),
+            gameArea: document.getElementById('game-area'),
+            sessionInfo: document.getElementById('session-info'),
+            userCards: document.getElementById('user-cards'),
+            userListItems: document.getElementById('user-list-items'),
+            averageDisplay: document.getElementById('average-display'),
+            roundStatus: document.querySelector('.status-text'),
+            deckContainer: document.querySelector('.deck-container'),
+            choiceButtons: document.getElementById('choice-buttons'),
+            createForm: document.getElementById('create-form'),
+            joinFields: document.getElementById('join-fields'),
+            revealButton: document.getElementById('reveal-cards'),
+            resetButton: document.getElementById('reset-round')
+        };
+
+        // ======================================
+        //           Utility Functions
+        // ======================================
         function generateId(length = 6) {
             return Math.random().toString(36).substring(2, 2 + length).toUpperCase();
         }
 
+        function showCreate() {
+            elements.choiceButtons.style.display = 'none';
+            elements.createForm.style.display = 'flex';
+        }
+
+        function showJoin() {
+            elements.choiceButtons.style.display = 'none';
+            elements.joinFields.style.display = 'flex';
+        }
+
+        function goBack() {
+            elements.createForm.style.display = 'none';
+            elements.joinFields.style.display = 'none';
+            elements.choiceButtons.style.display = 'flex';
+        }
+
+        function getCardColor(value) {
+            // Color gradient based on value ranges
+            if (value === '?') return '#667eea';
+            if (value === '☕') return '#6F4E37';
+
+            const num = parseInt(value);
+            if (isNaN(num)) return '#3498db';
+
+            // Gradient from green to red based on value
+            if (num <= 5) return '#2ecc71';
+            if (num <= 10) return '#3498db';
+            if (num <= 16) return '#f39c12';
+            if (num <= 24) return '#e67e22';
+            if (num <= 32) return '#e74c3c';
+            return '#9b59b6'; // 34-40
+        }
+
+        // ======================================
+        //           Session Management
+        // ======================================
         function createSession() {
-            user_name = document.getElementById('name-create')?.value.trim();
-            if (!user_name) {
-                return alert('Enter your name');
+            const name = document.getElementById('name-create')?.value.trim();
+            if (!name) {
+                showNotification('Please enter your name', 'error');
+                return;
             }
 
-            if (user_name.length > 9) {
-                return alert("Username cant be bigger than 9 characters!");
-            }
-
-            session_id = generateId();
-
+            state.userName = name;
+            state.sessionId = generateId();
+            state.isHost = true;
             joinUser();
         }
 
         function joinSession() {
-            user_name = document.getElementById('name-join')?.value.trim();
-            session_id = document.getElementById('session-input').value.trim();
-            if (!user_name || !session_id) {
-                return alert('Enter name and session ID');
+            const name = document.getElementById('name-join')?.value.trim();
+            const sessionId = document.getElementById('session-input')?.value.trim().toUpperCase();
+
+            if (!name || !sessionId) {
+                showNotification('Please enter both name and session ID', 'error');
+                return;
             }
 
-            if (user_name.length > 9) {
-                return alert("Username cant be bigger than 9 characters!");
-            }
-
+            state.userName = name;
+            state.sessionId = sessionId;
             joinUser();
         }
 
-        // Join logic
         function joinUser() {
-            const session_ref = db.ref('sessions/' + session_id);
-            session_ref.once('value').then(snap => {
+            const sessionRef = db.ref('sessions/' + state.sessionId);
 
-                // Initialize if new session
-                if (!snap.exists()) {
-                    session_ref.set({
+            sessionRef.once('value').then(snap => {
+                const data = snap.val();
+
+                // Initialize new session
+                if (!data) {
+                    if (!state.isHost) {
+                        showNotification('Session not found', 'error');
+                        return;
+                    }
+                    sessionRef.set({
                         revealed: false,
                         users: {},
                         host: null,
-                        createdAt: Date.now(),
-                        average: null
+                        createdAt: Date.now()
                     });
                 }
 
-                let data = snap.val() || { users: {}, host: null };
+                const existingUsers = data?.users || {};
 
-                const userCount = Object.keys(data.users || {}).length;
-                if (userCount >= 10) {
-                    return alert('Session full (max 10)');
+                // Check session capacity
+                if (Object.keys(existingUsers).length >= 10) {
+                    showNotification('Session is full (max 10 players)', 'error');
+                    return;
                 }
 
-                const existing_names = Object.values(data.users || {}).map(user => user.name);
-                if (existing_names.includes(user_name)) {
-                    return alert('Username already exists in this session. Please choose a different name.');
+                // Check for duplicate names
+                const existingNames = Object.values(existingUsers).map(u => u.name);
+                if (existingNames.includes(state.userName)) {
+                    showNotification('This name is already taken in the session', 'error');
+                    return;
                 }
 
-                user_id = session_ref.child('users').push().key;
-                session_ref.child('users/' + user_id).set({ name: user_name, choice: null, is_host: is_host });
-                session_ref.child('users/' + user_id).onDisconnect().remove(_ => {
-                    session_ref.update({ host: userCount === 0 ? null : Object.keys(data.users || {})[0] || null });
+                // Add user to session
+                state.userId = sessionRef.child('users').push().key;
+                sessionRef.child('users/' + state.userId).set({
+                    name: state.userName,
+                    choice: null
                 });
 
-                // If there's no host, assign one
-                if (!data.host) {
-                    session_ref.update({ host: user_id });
-                    is_host = true;
+                // Set up disconnect handler
+                sessionRef.child('users/' + state.userId).onDisconnect().remove();
+
+                // Assign host if needed
+                if (!data?.host || state.isHost) {
+                    sessionRef.update({ host: state.userId });
                 }
 
-                join_form.style.display = 'none';
-                session_info.textContent = `Session ID: ${session_id} (share this!)`;
-                session_info.style.display = 'block';
-                controls.style.display = 'flex';
-                deck.style.display = 'flex';
-                user_list_container.style.display = "block";
-                setupDeck();
+                // Show game area
+                initializeGame();
                 listenToSession();
             });
         }
 
-        // Listen for changes
+        function initializeGame() {
+            elements.joinForm.style.display = 'none';
+            elements.gameArea.style.display = 'flex';
+            elements.sessionInfo.innerHTML = `
+                <span class="session-id">Session: <strong>${state.sessionId}</strong></span>
+                <button class="btn-copy" onclick="copySessionId()">Copy ID</button>
+            `;
+            setupDeck();
+        }
+
+        function copySessionId() {
+            navigator.clipboard.writeText(state.sessionId);
+            showNotification('Session ID copied!', 'success');
+        }
+
+        function showNotification(message, type = 'info') {
+            // Simple notification (you can enhance this with a toast library)
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.classList.add('fade-out');
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        // ======================================
+        //           Real-time Updates
+        // ======================================
         function listenToSession() {
-            db.ref('sessions/' + session_id).on('value', snap => {
+            db.ref('sessions/' + state.sessionId).on('value', snap => {
                 const data = snap.val();
+                if (!data) return;
 
-                if (!data) {
-                    return;
-                }
+                state.isRevealed = data.revealed;
+                state.users = data.users || {};
+                state.isHost = data.host === state.userId;
 
-                is_revealed = data.revealed;
-                users = data.users || {};
-                is_host = data.host === user_id;
-
-                average_display.textContent = is_revealed && data.average ? `Average: ${data.average}` : is_revealed ? 'Average: N/A' : '';
-
-                renderTable();
+                updateControls();
+                updateRoundStatus();
+                renderUserCards();
                 renderUserList(data.host);
+
+                if (state.isRevealed && data.average) {
+                    elements.averageDisplay.innerHTML = `
+                        <span class="average-label">Average:</span>
+                        <span class="average-value">${data.average}</span>
+                    `;
+                } else {
+                    elements.averageDisplay.innerHTML = '';
+                }
             });
         }
 
-        // Render users around table
-        function renderTable() {
-            table.innerHTML = '';
-            const user_list = Object.entries(users);
-            const n = user_list.length;
+        function updateControls() {
+            elements.revealButton.disabled = !state.isHost;
+            elements.resetButton.disabled = !state.isHost;
 
-            const table_width = 65; // Percentage width of the table (from styles.css)
-            const card_width = 120; // Width of each card in pixels
-            const total_width = Math.min(650, card_width + (n - 1) * (card_width + 20)); // Max 650px, with 20px margin between cards
-            const start_x = (table_width - (total_width / 6.5)) / 2; // Center the row, converting % to px ratio
+            if (!state.isHost) {
+                elements.revealButton.title = 'Only the host can reveal cards';
+                elements.resetButton.title = 'Only the host can reset the round';
+            }
+        }
 
-            user_list.forEach(([uid, user], i) => {
-                const x = start_x + (i * (card_width + 20)) / 6.5; // Linear positioning across the table width
-                const y = 50; // Fixed vertical center for all cards
+        function updateRoundStatus() {
+            const totalUsers = Object.keys(state.users).length;
+            const usersVoted = Object.values(state.users).filter(u => u.choice).length;
 
-                const user_div = document.createElement('div');
-                user_div.classList.add('user');
-                if (uid === user_id) {
-                    user_div.classList.add('own')
-                };
-                user_div.style.left = `${x}%`;
-                user_div.style.top = `${y}%`;
+            if (state.isRevealed) {
+                elements.roundStatus.textContent = 'Cards Revealed!';
+            } else if (usersVoted === 0) {
+                elements.roundStatus.textContent = 'Waiting for votes...';
+            } else if (usersVoted === totalUsers) {
+                elements.roundStatus.textContent = 'All players have voted!';
+            } else {
+                elements.roundStatus.textContent = `${usersVoted}/${totalUsers} voted`;
+            }
+        }
 
-                const name_span = document.createElement('span');
-                name_span.classList.add('user-name');
-                name_span.textContent = user.name + (uid === db.ref('sessions/' + session_id + '/host').key ? ' (Host)' : '');
+        // ======================================
+        //           Card Rendering
+        // ======================================
+        function renderUserCards() {
+            elements.userCards.innerHTML = '';
+            const userList = Object.entries(state.users);
+            const totalUsers = userList.length;
+
+            userList.forEach(([uid, user], index) => {
+                // Assuming table dimensions from CSS
+                const tableWidth = 600;
+                const tableHeight = 400;
+
+                // Your original radius (adjusted for elliptical shape)
+                const radiusY = 200; // This acts as the semi-minor axis (vertical radius)
+
+                // Calculate the aspect ratio of the table (width / height)
+                const aspectRatio = tableWidth / tableHeight;
+
+                // Derive the semi-major axis (horizontal radius) to maintain the elliptical proportions
+                const radiusX = radiusY * aspectRatio;
+
+                // For each user (index from 0 to totalUsers - 1)
+                const angle = (index * (360 / totalUsers)) - 90; // In degrees, starting from top
+                const rad = angle * Math.PI / 180; // Convert to radians
+
+                // Parametric equations for ellipse
+                const x = (radiusX * Math.cos(rad)) - 33;
+                const y = (radiusY * Math.sin(rad)) - 33;
+
+                const cardWrapper = document.createElement('div');
+                cardWrapper.className = 'user-card-wrapper';
+                cardWrapper.style.transform = `translate(${x}px, ${y}px)`;
+
+                // User name
+                const userName = document.createElement('div');
+                userName.className = 'user-name';
+                userName.textContent = user.name;
+                if (uid === state.userId) {
+                    userName.classList.add('current-user');
+                }
+
+                // Card
+                const card = document.createElement('div');
+                card.className = 'player-card';
 
                 if (!user.choice) {
-                    const waiting = document.createElement('div');
-                    waiting.classList.add('card-placeholder', 'waiting');
-                    waiting.textContent = 'Waiting';
-                    waiting.appendChild(name_span);
-                    user_div.appendChild(waiting);
+                    card.classList.add('waiting');
+                    card.innerHTML = '<div class="card-back">🎴</div>';
+                } else if (!state.isRevealed) {
+                    card.classList.add('selected');
+                    card.innerHTML = '<div class="card-back">✓</div>';
                 } else {
-                    const flip_container = document.createElement('div');
-                    flip_container.classList.add('flip-container');
-
-                    const flipper = document.createElement('div');
-                    flipper.classList.add('flipper');
-
-                    const front = document.createElement('div');
-                    front.classList.add('front');
-                    front.textContent = 'Card';
-                    front.appendChild(name_span);
-
-                    flipper.appendChild(front);
-                    if (is_revealed) {
-                        const back = document.createElement('div');
-                        back.classList.add('back');
-                        back.textContent = user.choice;
-                        back.style.background = getCardBackground(user.choice);
-                        back.appendChild(name_span);
-                        flipper.appendChild(back);
-                        flip_container.classList.add('flipped');
-                    }
-
-                    flipper.appendChild(front);
-                    flip_container.appendChild(flipper);
-                    user_div.appendChild(flip_container);
+                    card.classList.add('revealed');
+                    const color = getCardColor(user.choice);
+                    card.style.background = color;
+                    card.innerHTML = `<div class="card-value">${user.choice}</div>`;
                 }
 
-                table.appendChild(user_div);
+                cardWrapper.appendChild(card);
+                cardWrapper.appendChild(userName);
+                elements.userCards.appendChild(cardWrapper);
             });
         }
 
-        function renderUserList(host_id) {
-            user_list_container.innerHTML = '';
-            const user_list = Object.entries(users);
-            user_list.forEach(([uid, user]) => {
-                const list_item = document.createElement('div');
-                list_item.classList.add('user-list-item');
-                if (uid === user_id) {
-                    list_item.classList.add('own');
-                }
-                const name_span = document.createElement('span');
-                name_span.textContent = user.name + (uid == user_id ? ' (You)' : '') + (uid === host_id ? ' (Host)' : '');
-                list_item.appendChild(name_span);
+        function renderUserList(hostId) {
+            elements.userListItems.innerHTML = '';
 
-                if (is_host && uid !== user_id) {
-                    const transfer_btn = document.createElement('button');
-                    transfer_btn.textContent = 'Make Host';
-                    transfer_btn.classList.add('transfer-host-btn');
-                    transfer_btn.onclick = () => transferHost(uid);
-                    list_item.appendChild(transfer_btn);
+            Object.entries(state.users).forEach(([uid, user]) => {
+                const listItem = document.createElement('div');
+                listItem.className = 'user-list-item';
+
+                if (uid === state.userId) {
+                    listItem.classList.add('current-user');
                 }
 
-                user_list_container.appendChild(list_item);
+                const statusIcon = user.choice ? '✓' : '⏳';
+                const hostBadge = uid === hostId ? ' 👑' : '';
+
+                listItem.innerHTML = `
+                    <span class="user-status ${user.choice ? 'voted' : 'waiting'}">${statusIcon}</span>
+                    <span class="user-name">${user.name}${hostBadge}</span>
+                    ${state.isHost && uid !== state.userId ? `
+                        <button class="btn-make-host" onclick="transferHost('${uid}')">
+                            Make Host
+                        </button>
+                    ` : ''}
+                `;
+
+                elements.userListItems.appendChild(listItem);
             });
         }
 
-        // Get card background based on value
-        function getCardBackground(val) {
-            if (val === '?') return 'linear-gradient(135deg, #667eea, #764ba2)';
-            return 'linear-gradient(135deg, #4facfe, #00f2fe)';
-        }
-
+        // ======================================
+        //           Deck Setup
+        // ======================================
         function setupDeck() {
-            values.forEach(val => {
+            elements.deckContainer.innerHTML = '';
+
+            cardValues.forEach(value => {
                 const card = document.createElement('div');
-                card.classList.add('card');
-                if (val === '?') card.classList.add('question');
-                if (val === '☕') card.classList.add('coffee');
-                card.textContent = val;
-                card.onclick = () => selectCard(val);
-                deck.appendChild(card);
+                card.className = 'deck-card';
+                card.dataset.value = value;
+
+                const color = getCardColor(value);
+                card.style.background = color;
+
+                card.innerHTML = `<span class="card-value">${value}</span>`;
+                card.onclick = () => selectCard(value);
+
+                elements.deckContainer.appendChild(card);
             });
         }
 
-        function selectCard(val) {
-            if (is_revealed) {
+        function selectCard(value) {
+            if (state.isRevealed) {
+                showNotification('Wait for the next round to vote', 'warning');
                 return;
             }
 
-            // Remove .selected from all cards in deck
-            const cards = deck.querySelectorAll('.card');
-            cards.forEach(card => card.classList.remove('selected'));
+            // Update UI
+            document.querySelectorAll('.deck-card').forEach(card => {
+                card.classList.remove('selected');
+            });
 
-            // Add .selected to the clicked card
-            const selected_card = Array.from(cards).find(card => card.textContent === val);
-            if (selected_card) {
-                selected_card.classList.add('selected');
+            const selectedCard = document.querySelector(`.deck-card[data-value="${value}"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
             }
 
-            // Update Firebase with the choice
-            db.ref('sessions/' + session_id + '/users/' + user_id).update({ choice: val });
+            state.selectedCard = value;
+
+            // Update database
+            db.ref(`sessions/${state.sessionId}/users/${state.userId}`).update({
+                choice: value
+            });
         }
 
-        function transferHost(new_host_id) {
-            if (!is_host) {
-                return;
-            }
-            db.ref('sessions/' + session_id).update({ host: new_host_id });
-        }
+        // ======================================
+        //           Host Actions
+        // ======================================
+        function transferHost(newHostId) {
+            if (!state.isHost) return;
 
-        function calculate_average(choices) {
-            const numeric_values = choices
-                .filter(choice => !isNaN(parseFloat(choice)) && choice !== '?')
-                .map(choice => parseFloat(choice));
-            return numeric_values.length > 0
-                ? (numeric_values.reduce((sum, val) => sum + val, 0) / numeric_values.length).toFixed(1)
-                : null;
+            db.ref('sessions/' + state.sessionId).update({ host: newHostId });
+            showNotification('Host transferred successfully', 'success');
         }
 
         function revealCards() {
-            if (!is_host) {
+            if (!state.isHost) {
+                showNotification('Only the host can reveal cards', 'warning');
                 return;
             }
 
-            const choices = Object.values(users).map(user => user.choice).filter(choice => choice);
-            const average = calculate_average(choices);
-            db.ref('sessions/' + session_id).update({ revealed: true, average: average });
+            const choices = Object.values(state.users)
+                .map(user => user.choice)
+                .filter(choice => choice);
+
+            const average = calculateAverage(choices);
+
+            db.ref('sessions/' + state.sessionId).update({
+                revealed: true,
+                average: average
+            });
         }
 
         function resetRound() {
-            if (!is_host) {
+            if (!state.isHost) {
+                showNotification('Only the host can reset the round', 'warning');
                 return;
             }
 
             const updates = { revealed: false, average: null };
-            Object.keys(users).forEach(uid => {
+            Object.keys(state.users).forEach(uid => {
                 updates[`users/${uid}/choice`] = null;
             });
-            db.ref('sessions/' + session_id).update(updates);
+
+            db.ref('sessions/' + state.sessionId).update(updates);
+
+            // Clear selected card in UI
+            document.querySelectorAll('.deck-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            state.selectedCard = null;
         }
 
+        function calculateAverage(choices) {
+            const numericValues = choices
+                .filter(choice => !isNaN(parseFloat(choice)) && choice !== '?' && choice !== '☕')
+                .map(choice => parseFloat(choice));
+
+            if (numericValues.length === 0) return 'N/A';
+
+            const avg = numericValues.reduce((sum, val) => sum + val, 0) / numericValues.length;
+            return avg.toFixed(1);
+        }
+
+        // ======================================
+        //           Keyboard Shortcuts
+        // ======================================
+        document.addEventListener('keydown', (e) => {
+            if (state.isHost && e.key === 'r' && e.ctrlKey) {
+                e.preventDefault();
+                revealCards();
+            }
+            if (state.isHost && e.key === 'n' && e.ctrlKey) {
+                e.preventDefault();
+                resetRound();
+            }
+        });
     </script>
 </body>
 

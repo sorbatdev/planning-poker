@@ -1,5 +1,5 @@
 # Simple workflow for deploying static content to GitHub Pages
-name: Deploy static content to Pages
+name: Deploy Planning Poker to GitHub Pages
 
 on:
   # Runs on pushes targeting the default branch
@@ -28,11 +28,17 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Replace placeholders with secrets
+        
+      - name: Replace Firebase config placeholders
         run: |
+          # Create a backup of the original file
+          cp index.html index.html.backup
+          
+          # Replace placeholders with secrets
           sed -i 's#{{FIREBASE_API_KEY}}#${{ secrets.FIREBASE_API_KEY }}#g' index.html
           sed -i 's#{{FIREBASE_AUTH_DOMAIN}}#${{ secrets.FIREBASE_AUTH_DOMAIN }}#g' index.html
           sed -i 's#{{FIREBASE_DATABASE_URL}}#${{ secrets.FIREBASE_DATABASE_URL }}#g' index.html
@@ -40,13 +46,44 @@ jobs:
           sed -i 's#{{FIREBASE_STORAGE_BUCKET}}#${{ secrets.FIREBASE_STORAGE_BUCKET }}#g' index.html
           sed -i 's#{{FIREBASE_MESSAGING_SENDER_ID}}#${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}#g' index.html
           sed -i 's#{{FIREBASE_APP_ID}}#${{ secrets.FIREBASE_APP_ID }}#g' index.html
+          
+          # Verify replacements were made
+          if grep -q "{{FIREBASE_" index.html; then
+            echo "Error: Firebase placeholders were not replaced. Check your secrets configuration."
+            exit 1
+          fi
+          
+      - name: Minify HTML and CSS
+        run: |
+          # Install minification tools
+          npm install -g html-minifier-terser cssnano-cli
+          
+          # Minify HTML (optional - comment out if you prefer readable HTML)
+          # html-minifier-terser index.html -o index.min.html \
+          #   --collapse-whitespace \
+          #   --remove-comments \
+          #   --minify-js true \
+          #   --minify-css true
+          # mv index.min.html index.html
+          
+          # Minify CSS (optional - comment out if you prefer readable CSS)
+          # cssnano styles.css styles.min.css
+          # mv styles.min.css styles.css
+          
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           # Upload entire repository
           path: '.'
+          
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        
+      - name: Output deployment URL
+        run: |
+          echo "🚀 Deployment successful!"
+          echo "📍 Your app is now available at: ${{ steps.deployment.outputs.page_url }}"
