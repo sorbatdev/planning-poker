@@ -5,8 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planning Poker - Agile Estimation Tool</title>
-    <meta name="description"
-        content="Free online Planning Poker tool for agile teams. Real-time collaboration for story point estimation.">
+    <meta name="description" content="Free online Planning Poker tool for agile teams. Real-time collaboration for story point estimation.">
     <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/12.1.0/firebase-database-compat.js"></script>
     <link rel="stylesheet" href="styles.css">
@@ -57,7 +56,6 @@
                 <button id="reset-round" class="btn btn-reset" onclick="resetRound()">
                     <span class="btn-icon">🔄</span> New Round
                 </button>
-                <div id="average-display" class="average-display"></div>
             </div>
 
             <!-- Poker Table Area -->
@@ -68,6 +66,7 @@
                             <div id="round-status" class="round-status">
                                 <span class="status-text">Choose your card</span>
                             </div>
+                            <div id="average-display" class="average-display-center"></div>
                         </div>
                     </div>
                 </div>
@@ -126,21 +125,25 @@
         // ======================================
         //           DOM Elements Cache
         // ======================================
-        const elements = {
-            joinForm: document.getElementById('join-form'),
-            gameArea: document.getElementById('game-area'),
-            sessionInfo: document.getElementById('session-info'),
-            userCards: document.getElementById('user-cards'),
-            userListItems: document.getElementById('user-list-items'),
-            averageDisplay: document.getElementById('average-display'),
-            roundStatus: document.querySelector('.status-text'),
-            deckContainer: document.querySelector('.deck-container'),
-            choiceButtons: document.getElementById('choice-buttons'),
-            createForm: document.getElementById('create-form'),
-            joinFields: document.getElementById('join-fields'),
-            revealButton: document.getElementById('reveal-cards'),
-            resetButton: document.getElementById('reset-round')
-        };
+        let elements = {}; // Will be initialized when needed
+
+        function initializeElements() {
+            elements = {
+                joinForm: document.getElementById('join-form'),
+                gameArea: document.getElementById('game-area'),
+                sessionInfo: document.getElementById('session-info'),
+                userCards: document.getElementById('user-cards'),
+                userListItems: document.getElementById('user-list-items'),
+                averageDisplay: document.getElementById('average-display'),
+                roundStatus: document.querySelector('.status-text'),
+                deckContainer: document.querySelector('.deck-container'),
+                choiceButtons: document.getElementById('choice-buttons'),
+                createForm: document.getElementById('create-form'),
+                joinFields: document.getElementById('join-fields'),
+                revealButton: document.getElementById('reveal-cards'),
+                resetButton: document.getElementById('reset-round')
+            };
+        }
 
         // ======================================
         //           Utility Functions
@@ -150,19 +153,19 @@
         }
 
         function showCreate() {
-            elements.choiceButtons.style.display = 'none';
-            elements.createForm.style.display = 'flex';
+            document.getElementById('choice-buttons').style.display = 'none';
+            document.getElementById('create-form').style.display = 'flex';
         }
 
         function showJoin() {
-            elements.choiceButtons.style.display = 'none';
-            elements.joinFields.style.display = 'flex';
+            document.getElementById('choice-buttons').style.display = 'none';
+            document.getElementById('join-fields').style.display = 'flex';
         }
 
         function goBack() {
-            elements.createForm.style.display = 'none';
-            elements.joinFields.style.display = 'none';
-            elements.choiceButtons.style.display = 'flex';
+            document.getElementById('create-form').style.display = 'none';
+            document.getElementById('join-fields').style.display = 'none';
+            document.getElementById('choice-buttons').style.display = 'flex';
         }
 
         function getCardColor(value) {
@@ -269,6 +272,10 @@
         }
 
         function initializeGame() {
+            if (!elements.joinForm) {
+                initializeElements();
+            }
+
             elements.joinForm.style.display = 'none';
             elements.gameArea.style.display = 'flex';
             elements.sessionInfo.innerHTML = `
@@ -300,6 +307,11 @@
         //           Real-time Updates
         // ======================================
         function listenToSession() {
+            // Ensure elements are initialized
+            if (!elements.averageDisplay) {
+                initializeElements();
+            }
+
             db.ref('sessions/' + state.sessionId).on('value', snap => {
                 const data = snap.val();
                 if (!data) return;
@@ -314,17 +326,21 @@
                 renderUserList(data.host);
 
                 if (state.isRevealed && data.average) {
+                    elements.averageDisplay.style.display = 'block';
                     elements.averageDisplay.innerHTML = `
-                        <span class="average-label">Average:</span>
-                        <span class="average-value">${data.average}</span>
+                        <div class="average-value">${data.average}</div>
+                        <div class="average-label">Average</div>
                     `;
                 } else {
+                    elements.averageDisplay.style.display = 'none';
                     elements.averageDisplay.innerHTML = '';
                 }
             });
         }
 
         function updateControls() {
+            if (!elements.revealButton) return;
+
             elements.revealButton.disabled = !state.isHost;
             elements.resetButton.disabled = !state.isHost;
 
@@ -335,6 +351,8 @@
         }
 
         function updateRoundStatus() {
+            if (!elements.roundStatus) return;
+
             const totalUsers = Object.keys(state.users).length;
             const usersVoted = Object.values(state.users).filter(u => u.choice).length;
 
@@ -353,6 +371,8 @@
         //           Card Rendering
         // ======================================
         function renderUserCards() {
+            if (!elements.userCards) return;
+
             elements.userCards.innerHTML = '';
             const userList = Object.entries(state.users);
             const totalUsers = userList.length;
@@ -415,6 +435,8 @@
         }
 
         function renderUserList(hostId) {
+            if (!elements.userListItems) return;
+
             elements.userListItems.innerHTML = '';
 
             Object.entries(state.users).forEach(([uid, user]) => {
@@ -446,6 +468,10 @@
         //           Deck Setup
         // ======================================
         function setupDeck() {
+            if (!elements.deckContainer) {
+                initializeElements();
+            }
+
             elements.deckContainer.innerHTML = '';
 
             cardValues.forEach(value => {

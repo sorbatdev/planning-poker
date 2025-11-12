@@ -258,6 +258,30 @@ header h1 {
     color: var(--secondary-color);
 }
 
+/* Average Display in Center of Table */
+.average-display-center {
+    display: none;
+    margin-top: 1rem;
+    text-align: center;
+    animation: fadeIn 0.5s ease;
+}
+
+.average-display-center .average-value {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+    line-height: 1;
+}
+
+.average-display-center .average-label {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 0.5rem;
+}
+
 /* ======================================
    Poker Table
    ====================================== */
