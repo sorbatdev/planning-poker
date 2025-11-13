@@ -122,6 +122,8 @@
             '40', '?', '☕'
         ];
 
+        const maxPlayers = 10;
+
         // ======================================
         //           DOM Elements Cache
         // ======================================
@@ -237,10 +239,24 @@
 
                 const existingUsers = data?.users || {};
 
+                console.log(existingUsers);
+
+                state.userId = sessionRef.child('users').push().key;
+
                 // Check session capacity
-                if (Object.keys(existingUsers).length >= 10) {
-                    showNotification('Session is full (max 10 players)', 'error');
+                if (Object.keys(existingUsers).length >= maxPlayers) {
+                    showNotification(`Session is full (max ${maxPlayers} players)`, 'error');
                     return;
+                }
+
+                console.log(`Session host: ${data?.host}`);
+                console.log(`Is host: ${state.isHost}`);
+                console.log(`Users length: ${Object.keys(existingUsers).length}`)
+
+                // If there is no-one in the room and the host is not in the room, become the host.
+                if (!data?.host || state.isHost || Object.keys(existingUsers).length < 1) {
+                    console.log("Updating Host.");
+                    sessionRef.update({ host: state.userId });
                 }
 
                 // Check for duplicate names
@@ -251,7 +267,6 @@
                 }
 
                 // Add user to session
-                state.userId = sessionRef.child('users').push().key;
                 sessionRef.child('users/' + state.userId).set({
                     name: state.userName,
                     choice: null
@@ -259,11 +274,6 @@
 
                 // Set up disconnect handler
                 sessionRef.child('users/' + state.userId).onDisconnect().remove();
-
-                // Assign host if needed
-                if (!data?.host || state.isHost) {
-                    sessionRef.update({ host: state.userId });
-                }
 
                 // Show game area
                 initializeGame();
@@ -315,6 +325,11 @@
             db.ref('sessions/' + state.sessionId).on('value', snap => {
                 const data = snap.val();
                 if (!data) return;
+
+                if (!(data.host in data.users))
+                {
+                    data.host = Object.keys(data.users)[0];
+                }
 
                 state.isRevealed = data.revealed;
                 state.users = data.users || {};
