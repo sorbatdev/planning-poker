@@ -122,6 +122,17 @@ header h1 {
     font-size: 1.8rem;
 }
 
+.notice-banner {
+    background: rgba(243, 156, 18, 0.12);
+    border: 1px solid var(--warning-color);
+    color: #7a5100;
+    border-radius: var(--border-radius);
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
 .choice-buttons {
     display: flex;
     flex-direction: column;

@@ -23,6 +23,10 @@
             <div class="form-card">
                 <h2>Start Your Session</h2>
 
+                <div class="notice-banner">
+                    ⚠️ Existing rooms will be cleared on <strong>July 31st</strong> — you'll need to create a new one.
+                </div>
+
                 <!-- Initial choice buttons -->
                 <div id="choice-buttons" class="choice-buttons">
                     <button class="btn btn-primary" onclick="showCreate()">Create New Session</button>
@@ -32,10 +36,14 @@
                 <!-- Create form -->
                 <div id="create-form" class="form-fields" style="display:none;">
                     <input id="name-create" class="input-field" placeholder="Your Name" maxlength="9" required>
-                    <select id="granularity-select" class="input-field">
-                        <option value="default">Standard (1–40)</option>
-                        <option value="halfPoint">Half Point (0.5–10)</option>
-                    </select>
+                    <select id="granularity-select" class="input-field" onchange="onGranularityChange()"></select>
+
+                    <div id="custom-granularity-fields" class="form-fields" style="display:none;">
+                        <input id="custom-granularity-name" class="input-field" placeholder="Template Name" maxlength="16">
+                        <input id="custom-granularity-values" class="input-field" placeholder="e.g. 1 2 3 5 8 13 21 ? ☕">
+                        <button type="button" class="btn btn-secondary" onclick="saveCustomGranularity()">Save</button>
+                    </div>
+
                     <button class="btn btn-success" onclick="createSession()">Start Session</button>
                     <button class="btn btn-ghost" onclick="goBack()">← Back</button>
                 </div>
@@ -121,6 +129,7 @@
             pendingGranularity: null
         };
 
+        // Fallback deck used only until the real templates load from Firebase.
         const cardValues = [
             '1', '2', '3', '4', '5', '6', '7', '8', '9',
             '10', '12', '14', '16', '18',
@@ -129,13 +138,8 @@
             '40', '?', '☕'
         ];
 
-        const granularityTemplates = {
-            default: cardValues,
-            halfPoint: [
-                '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5',
-                '6', '7', '8', '9', '10', '?', '☕'
-            ]
-        };
+        // Populated from Firebase ('granularityTemplates/{key}': { name, values }).
+        let granularityTemplates = {};
 
         const maxPlayers = 10;
 
@@ -203,6 +207,85 @@
         }
 
         // ======================================
+        //           Granularity Templates
+        // ======================================
+        function listenToGranularityTemplates() {
+            db.ref('granularityTemplates').on('value', snap => {
+                granularityTemplates = snap.val() || {};
+                renderGranularityOptions();
+            });
+        }
+
+        function formatGranularityPreview(template) {
+            const values = template.values.trim().split(/\s+/);
+            const previewCount = 4;
+            const preview = values.slice(0, previewCount).join(', ');
+            return values.length > previewCount ? `${preview} ...` : preview;
+        }
+
+        function renderGranularityOptions() {
+            const select = document.getElementById('granularity-select');
+            if (!select) return;
+
+            const previousValue = select.value;
+            select.innerHTML = '';
+
+            Object.entries(granularityTemplates).forEach(([key, template]) => {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = `${template.name} (${formatGranularityPreview(template)})`;
+                select.appendChild(option);
+            });
+
+            const customOption = document.createElement('option');
+            customOption.value = '__custom__';
+            customOption.textContent = 'Custom...';
+            select.appendChild(customOption);
+
+            if ([...select.options].some(o => o.value === previousValue)) {
+                select.value = previousValue;
+            }
+        }
+
+        function onGranularityChange() {
+            const select = document.getElementById('granularity-select');
+            const customFields = document.getElementById('custom-granularity-fields');
+            if (!select || !customFields) return;
+
+            customFields.style.display = select.value === '__custom__' ? 'flex' : 'none';
+        }
+
+        function saveCustomGranularity() {
+            const nameInput = document.getElementById('custom-granularity-name');
+            const valuesInput = document.getElementById('custom-granularity-values');
+            const name = nameInput?.value.trim();
+            const values = valuesInput?.value.trim();
+
+            if (!name || !values) {
+                showNotification('Please enter both a name and a set of values', 'error');
+                return;
+            }
+
+            if (name.length > 16) {
+                showNotification('Name must be 16 characters or fewer', 'error');
+                return;
+            }
+
+            const newRef = db.ref('granularityTemplates').push();
+            newRef.set({ name, values }).then(() => {
+                nameInput.value = '';
+                valuesInput.value = '';
+                document.getElementById('custom-granularity-fields').style.display = 'none';
+                const select = document.getElementById('granularity-select');
+                if (select) select.value = newRef.key;
+                showNotification('Custom granularity saved!', 'success');
+            }).catch(err => {
+                console.error(err);
+                showNotification('Failed to save granularity: ' + err.message, 'error');
+            });
+        }
+
+        // ======================================
         //           Session Management
         // ======================================
         function createSession() {
@@ -212,10 +295,16 @@
                 return;
             }
 
+            const granularitySelect = document.getElementById('granularity-select');
+            if (granularitySelect?.value === '__custom__') {
+                showNotification('Please save your custom granularity set first', 'error');
+                return;
+            }
+
             state.userName = name;
             state.sessionId = generateId();
             state.isHost = true;
-            state.pendingGranularity = document.getElementById('granularity-select')?.value || 'default';
+            state.pendingGranularity = granularitySelect?.value || 'default';
             joinUser();
         }
 
@@ -519,7 +608,8 @@
 
             elements.deckContainer.innerHTML = '';
 
-            const values = granularityTemplates[granularityKey] || granularityTemplates.default;
+            const template = granularityTemplates[granularityKey];
+            const values = template ? template.values.trim().split(/\s+/) : cardValues;
 
             values.forEach(value => {
                 const card = document.createElement('div');
@@ -639,6 +729,8 @@
                 resetRound();
             }
         });
+
+        listenToGranularityTemplates();
     </script>
 </body>
 
