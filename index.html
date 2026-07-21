@@ -32,6 +32,10 @@
                 <!-- Create form -->
                 <div id="create-form" class="form-fields" style="display:none;">
                     <input id="name-create" class="input-field" placeholder="Your Name" maxlength="9" required>
+                    <select id="granularity-select" class="input-field">
+                        <option value="default">Standard (1–40)</option>
+                        <option value="halfPoint">Half Point (0.5–10)</option>
+                    </select>
                     <button class="btn btn-success" onclick="createSession()">Start Session</button>
                     <button class="btn btn-ghost" onclick="goBack()">← Back</button>
                 </div>
@@ -112,7 +116,9 @@
             isRevealed: false,
             isHost: false,
             users: {},
-            selectedCard: null
+            selectedCard: null,
+            granularity: null,
+            pendingGranularity: null
         };
 
         const cardValues = [
@@ -122,6 +128,14 @@
             '30', '32', '34', '36', '38',
             '40', '?', '☕'
         ];
+
+        const granularityTemplates = {
+            default: cardValues,
+            halfPoint: [
+                '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '4.5', '5',
+                '6', '7', '8', '9', '10', '?', '☕'
+            ]
+        };
 
         const maxPlayers = 10;
 
@@ -176,7 +190,7 @@
             if (value === '?') return '#667eea';
             if (value === '☕') return '#6F4E37';
 
-            const num = parseInt(value);
+            const num = parseFloat(value);
             if (isNaN(num)) return '#3498db';
 
             // Gradient from green to red based on value
@@ -201,6 +215,7 @@
             state.userName = name;
             state.sessionId = generateId();
             state.isHost = true;
+            state.pendingGranularity = document.getElementById('granularity-select')?.value || 'default';
             joinUser();
         }
 
@@ -218,10 +233,11 @@
             joinUser();
         }
 
-        function joinUser() {
+        async function joinUser() {
             const sessionRef = db.ref('sessions/' + state.sessionId);
 
-            sessionRef.once('value').then(snap => {
+            try {
+                const snap = await sessionRef.once('value');
                 const data = snap.val();
 
                 // Initialize new session
@@ -230,11 +246,14 @@
                         showNotification('Session not found', 'error');
                         return;
                     }
-                    sessionRef.set({
+                    // Awaited so a rejected write (e.g. permission_denied) is caught below
+                    // instead of leaving the session half-created and only visible locally.
+                    await sessionRef.set({
                         revealed: false,
                         users: {},
                         host: null,
-                        createdAt: Date.now()
+                        createdAt: Date.now(),
+                        granularity: state.pendingGranularity || 'default'
                     });
                 }
 
@@ -257,7 +276,7 @@
                 // If there is no-one in the room and the host is not in the room, become the host.
                 if (!data?.host || state.isHost || Object.keys(existingUsers).length < 1) {
                     console.log("Updating Host.");
-                    sessionRef.update({ host: state.userId });
+                    await sessionRef.update({ host: state.userId });
                 }
 
                 // Check for duplicate names
@@ -268,7 +287,7 @@
                 }
 
                 // Add user to session
-                sessionRef.child('users/' + state.userId).set({
+                await sessionRef.child('users/' + state.userId).set({
                     name: state.userName,
                     choice: null
                 });
@@ -279,7 +298,10 @@
                 // Show game area
                 initializeGame();
                 listenToSession();
-            });
+            } catch (err) {
+                console.error(err);
+                showNotification('Failed to join session: ' + err.message, 'error');
+            }
         }
 
         function initializeGame() {
@@ -293,7 +315,6 @@
                 <span class="session-id">Session: <strong>${state.sessionId}</strong></span>
                 <button class="btn-copy" onclick="copySessionId()">Copy ID</button>
             `;
-            setupDeck();
         }
 
         function copySessionId() {
@@ -327,6 +348,8 @@
                 const data = snap.val();
                 if (!data) return;
 
+                data.users = data.users || {};
+
                 if (!(data.host in data.users))
                 {
                     data.host = Object.keys(data.users)[0];
@@ -335,6 +358,12 @@
                 state.isRevealed = data.revealed;
                 state.users = data.users || {};
                 state.isHost = data.host === state.userId;
+
+                const granularityKey = data.granularity || 'default';
+                if (state.granularity !== granularityKey) {
+                    state.granularity = granularityKey;
+                    setupDeck(granularityKey);
+                }
 
                 updateControls();
                 updateRoundStatus();
@@ -483,14 +512,16 @@
         // ======================================
         //           Deck Setup
         // ======================================
-        function setupDeck() {
+        function setupDeck(granularityKey = 'default') {
             if (!elements.deckContainer) {
                 initializeElements();
             }
 
             elements.deckContainer.innerHTML = '';
 
-            cardValues.forEach(value => {
+            const values = granularityTemplates[granularityKey] || granularityTemplates.default;
+
+            values.forEach(value => {
                 const card = document.createElement('div');
                 card.className = 'deck-card';
                 card.dataset.value = value;
@@ -526,6 +557,13 @@
             // Update database
             db.ref(`sessions/${state.sessionId}/users/${state.userId}`).update({
                 choice: value
+            }).catch(err => {
+                console.error(err);
+                showNotification('Failed to register your vote: ' + err.message, 'error');
+                if (selectedCard) {
+                    selectedCard.classList.remove('selected');
+                }
+                state.selectedCard = null;
             });
         }
 
