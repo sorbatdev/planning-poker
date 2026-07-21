@@ -349,6 +349,7 @@
                         users: {},
                         host: null,
                         createdAt: Date.now(),
+                        lastUpdate: Date.now(),
                         granularity: state.pendingGranularity || 'default'
                     });
                 }
@@ -372,7 +373,7 @@
                 // If there is no-one in the room and the host is not in the room, become the host.
                 if (!data?.host || state.isHost || Object.keys(existingUsers).length < 1) {
                     console.log("Updating Host.");
-                    await sessionRef.update({ host: state.userId });
+                    await sessionRef.update({ host: state.userId, lastUpdate: Date.now() });
                 }
 
                 // Check for duplicate names
@@ -387,9 +388,11 @@
                     name: state.userName,
                     choice: null
                 });
+                await sessionRef.update({ lastUpdate: Date.now() });
 
                 // Set up disconnect handler
                 sessionRef.child('users/' + state.userId).onDisconnect().remove();
+                sessionRef.onDisconnect().update({ lastUpdate: firebase.database.ServerValue.TIMESTAMP });
 
                 // Show game area
                 initializeGame();
@@ -654,6 +657,8 @@
             // Update database
             db.ref(`sessions/${state.sessionId}/users/${state.userId}`).update({
                 choice: value
+            }).then(() => {
+                db.ref('sessions/' + state.sessionId).update({ lastUpdate: Date.now() });
             }).catch(err => {
                 console.error(err);
                 showNotification('Failed to register your vote: ' + err.message, 'error');
@@ -670,7 +675,7 @@
         function transferHost(newHostId) {
             if (!state.isHost) return;
 
-            db.ref('sessions/' + state.sessionId).update({ host: newHostId });
+            db.ref('sessions/' + state.sessionId).update({ host: newHostId, lastUpdate: Date.now() });
             showNotification('Host transferred successfully', 'success');
         }
 
@@ -688,7 +693,8 @@
 
             db.ref('sessions/' + state.sessionId).update({
                 revealed: true,
-                average: average
+                average: average,
+                lastUpdate: Date.now()
             });
         }
 
@@ -698,7 +704,7 @@
                 return;
             }
 
-            const updates = { revealed: false, average: null };
+            const updates = { revealed: false, average: null, lastUpdate: Date.now() };
             Object.keys(state.users).forEach(uid => {
                 updates[`users/${uid}/choice`] = null;
             });
