@@ -2,19 +2,25 @@
    Base Styles & Variables
    ====================================== */
 :root {
-    --primary-color: #3498db;
-    --secondary-color: #2ecc71;
-    --danger-color: #e74c3c;
-    --warning-color: #f39c12;
-    --dark-bg: #1a1a2e;
-    --card-bg: #2c3e50;
-    --table-felt: #0d7e3e;
-    --table-border: #8b4513;
-    --text-primary: #ecf0f1;
-    --text-secondary: #95a5a6;
-    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
-    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.15);
-    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.2);
+    --primary-color: #2f6f82;
+    --primary-hover: #26596a;
+    --secondary-color: #3a8a5f;
+    --danger-color: #b04a3f;
+    --warning-color: #c08b2c;
+    --ink: #23262b;
+    --canvas: #8a6d59;
+    --panel: rgba(35, 38, 44, 0.96);
+    --panel-soft: rgba(35, 38, 44, 0.8);
+    --paper: #faf7f0;
+    --paper-line: #ddd4c2;
+    --table-felt: #1a6244;
+    --table-felt-lit: #26855c;
+    --table-border: #6b4c36;
+    --text-primary: #f0ebe1;
+    --text-secondary: #a8a196;
+    --shadow-sm: 0 2px 4px rgba(35, 30, 20, 0.14);
+    --shadow-md: 0 4px 12px rgba(35, 30, 20, 0.18);
+    --shadow-lg: 0 14px 32px rgba(35, 30, 20, 0.22);
     --border-radius: 8px;
     /* Room the fixed sidebar and deck steal from the table; JS keeps --deck-height honest. */
     --sidebar-space: 250px;
@@ -31,7 +37,12 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    /* light falling on a table, not a hero gradient; the grain keeps the wash from banding */
+    background:
+        url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/></svg>"),
+        radial-gradient(1250px 760px at 50% 44%, rgba(255, 246, 222, 0.14), transparent 75%),
+        var(--canvas);
+    background-attachment: fixed;
     min-height: 100vh;
     color: var(--text-primary);
     overflow-x: hidden;
@@ -48,7 +59,8 @@ body {
    Header
    ====================================== */
 header {
-    background: rgba(26, 26, 46, 0.95);
+    background: var(--panel);
+    border-bottom: 1px solid rgba(192, 139, 44, 0.2);
     backdrop-filter: blur(10px);
     padding: 1rem 2rem;
     display: flex;
@@ -60,10 +72,12 @@ header {
 header h1 {
     font-size: 1.8rem;
     font-weight: 700;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+
+header h1 span {
+    color: var(--warning-color);
 }
 
 .header-right {
@@ -112,7 +126,7 @@ header h1 {
 }
 
 .btn-copy:hover {
-    background: #2980b9;
+    background: var(--primary-hover);
     transform: translateY(-1px);
 }
 
@@ -134,7 +148,7 @@ header h1 {
     top: 1.5rem;
     right: 1.5rem;
     width: 260px;
-    background: rgba(26, 26, 46, 0.75);
+    background: var(--panel-soft);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: var(--border-radius);
     backdrop-filter: blur(10px);
@@ -191,7 +205,8 @@ header h1 {
 }
 
 .form-card {
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--paper);
+    border: 1px solid rgba(35, 38, 44, 0.08);
     border-radius: 16px;
     padding: 2.5rem;
     box-shadow: var(--shadow-lg);
@@ -201,7 +216,7 @@ header h1 {
 }
 
 .form-card h2 {
-    color: var(--dark-bg);
+    color: var(--ink);
     text-align: center;
     margin-bottom: 2rem;
     font-size: 1.8rem;
@@ -222,16 +237,16 @@ header h1 {
 .input-field {
     padding: 0.9rem;
     font-size: 1rem;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--paper-line);
     border-radius: var(--border-radius);
     transition: all 0.2s ease;
-    background: white;
+    background: #fffdf8;
 }
 
 .input-field:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    box-shadow: 0 0 0 3px rgba(47, 111, 130, 0.15);
 }
 
 /* ======================================
@@ -283,12 +298,12 @@ header h1 {
 
 .btn-ghost {
     background: transparent;
-    color: var(--dark-bg);
-    border: 1px solid #e0e0e0;
+    color: var(--ink);
+    border: 1px solid var(--paper-line);
 }
 
 .btn-ghost:hover {
-    background: #f8f9fa;
+    background: #e9e2d4;
 }
 
 .btn-reveal {
@@ -317,7 +332,7 @@ header h1 {
 
 .controls {
     padding: 1rem 2rem;
-    background: rgba(26, 26, 46, 0.95);
+    background: var(--panel);
     backdrop-filter: blur(10px);
     display: flex;
     gap: 1rem;
@@ -392,12 +407,13 @@ header h1 {
 .table-felt {
     width: 100%;
     height: 100%;
-    background: radial-gradient(ellipse at center, #0f8a47 0%, var(--table-felt) 70%);
+    background: radial-gradient(ellipse at center, var(--table-felt-lit) 0%, var(--table-felt) 72%);
     border-radius: 50%;
     border: 16px solid var(--table-border);
     box-shadow: 
-        inset 0 0 40px rgba(0, 0, 0, 0.5),
-        0 8px 32px rgba(0, 0, 0, 0.3);
+        inset 0 0 0 2px rgba(192, 139, 44, 0.25),
+        inset 0 0 50px rgba(0, 0, 0, 0.55),
+        0 10px 36px rgba(0, 0, 0, 0.45);
     position: relative;
 }
 
@@ -508,11 +524,11 @@ header h1 {
 }
 
 .player-card.waiting {
-    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+    background: #363b42;
 }
 
 .player-card.selected {
-    background: linear-gradient(135deg, #3498db, #2980b9);
+    background: #7c3b40;
     animation: pulse 2s infinite;
 }
 
@@ -532,12 +548,13 @@ header h1 {
 }
 
 .user-card-wrapper .user-name {
-    color: white;
+    color: var(--ink);
     font-size: calc(0.85rem * var(--seat-scale));
     font-weight: 600;
     white-space: nowrap;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
-    background: rgba(26, 26, 46, 0.85);
+    background: rgba(255, 253, 247, 0.94);
+    border: 1px solid rgba(35, 38, 44, 0.1);
+    box-shadow: var(--shadow-sm);
     padding: calc(0.2rem * var(--seat-scale)) calc(0.6rem * var(--seat-scale));
     border-radius: 4px;
 }
@@ -552,6 +569,8 @@ header h1 {
 
 .user-card-wrapper .user-name.current-user {
     background: var(--primary-color);
+    border-color: transparent;
+    color: #fff;
 }
 
 /* ======================================
@@ -564,7 +583,7 @@ header h1 {
     transform: translateY(-50%);
     display: flex;
     flex-direction: column;
-    background: rgba(26, 26, 46, 0.95);
+    background: var(--panel);
     backdrop-filter: blur(10px);
     border-radius: var(--border-radius);
     padding: 1.25rem;
@@ -651,7 +670,7 @@ header h1 {
 }
 
 .user-list-item.current-user {
-    background: rgba(52, 152, 219, 0.2);
+    background: rgba(47, 111, 130, 0.25);
 }
 
 .user-status {
@@ -715,7 +734,7 @@ header h1 {
     bottom: 0;
     left: 0;
     right: 0;
-    background: rgba(26, 26, 46, 0.95);
+    background: var(--panel);
     backdrop-filter: blur(10px);
     padding: 1rem;
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
@@ -750,8 +769,8 @@ header h1 {
 
 .deck-card.selected {
     transform: translateY(-12px) scale(1.15);
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-    border: 2px solid white;
+    box-shadow: 0 0 18px rgba(192, 139, 44, 0.55);
+    border: 2px solid var(--warning-color);
 }
 
 .deck-card.selected::after {
@@ -784,7 +803,7 @@ header h1 {
     padding: 1rem 1.5rem;
     border-radius: var(--border-radius);
     background: white;
-    color: var(--dark-bg);
+    color: var(--ink);
     box-shadow: var(--shadow-lg);
     animation: slideInRight 0.3s ease;
     z-index: 1000;
@@ -845,10 +864,10 @@ header h1 {
 
 @keyframes pulse {
     0%, 100% {
-        box-shadow: 0 4px 8px rgba(52, 152, 219, 0.4);
+        box-shadow: 0 4px 8px rgba(124, 59, 64, 0.4);
     }
     50% {
-        box-shadow: 0 4px 20px rgba(52, 152, 219, 0.8);
+        box-shadow: 0 4px 18px rgba(124, 59, 64, 0.75);
     }
 }
 

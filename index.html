@@ -14,7 +14,7 @@
 <body>
     <div class="app-container">
         <header>
-            <h1>Planning Poker</h1>
+            <h1>Planning <span>Poker</span></h1>
             <div class="header-right">
                 <div id="session-info" class="session-info"></div>
                 <a href="https://github.com/sorbatdev/planning-poker" target="_blank" rel="noopener" class="github-link" aria-label="View source on GitHub">
@@ -233,20 +233,19 @@
         }
 
         function getCardColor(value) {
-            // Color gradient based on value ranges
-            if (value === '?') return '#667eea';
-            if (value === '☕') return '#6F4E37';
+            if (value === '?') return '#4a5560';
+            if (value === '☕') return '#5b4636';
 
             const num = parseFloat(value);
-            if (isNaN(num)) return '#3498db';
+            if (isNaN(num)) return '#3a6f82';
 
-            // Gradient from green to red based on value
-            if (num <= 5) return '#2ecc71';
-            if (num <= 10) return '#3498db';
-            if (num <= 16) return '#f39c12';
-            if (num <= 24) return '#e67e22';
-            if (num <= 32) return '#e74c3c';
-            return '#9b59b6'; // 34-40
+            // cool to hot as the estimate grows
+            if (num <= 5) return '#3a7f5c';
+            if (num <= 10) return '#3a6f82';
+            if (num <= 16) return '#9a7a33';
+            if (num <= 24) return '#a4682f';
+            if (num <= 32) return '#9b463b';
+            return '#7a4457'; // 34-40
         }
 
         // ======================================
