@@ -16,6 +16,11 @@
     --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.15);
     --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.2);
     --border-radius: 8px;
+    /* Room the fixed sidebar and deck steal from the table; JS keeps --deck-height honest. */
+    --sidebar-space: 250px;
+    --deck-height: 120px;
+    /* How far a seat hangs past the rim: half a card plus its name tag. */
+    --seat-overhang: 78px;
 }
 
 * {
@@ -115,11 +120,74 @@ header h1 {
    Join Form
    ====================================== */
 .join-form {
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: calc(100vh - 80px);
     padding: 2rem;
+}
+
+/* Landing page only - the join form takes the whole view, so absolute is enough. */
+.changelog {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: 260px;
+    background: rgba(26, 26, 46, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--border-radius);
+    backdrop-filter: blur(10px);
+    padding: 0.9rem 1rem;
+    box-shadow: var(--shadow-md);
+}
+
+.changelog h3 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-secondary);
+    margin-bottom: 0.6rem;
+}
+
+.changelog-version {
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    padding: 0.1rem 0.5rem;
+}
+
+.changelog ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.changelog li {
+    position: relative;
+    padding-left: 0.9rem;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    color: var(--text-primary);
+}
+
+.changelog li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.45rem;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--secondary-color);
 }
 
 .form-card {
@@ -137,17 +205,6 @@ header h1 {
     text-align: center;
     margin-bottom: 2rem;
     font-size: 1.8rem;
-}
-
-.notice-banner {
-    background: rgba(243, 156, 18, 0.12);
-    border: 1px solid var(--warning-color);
-    color: #7a5100;
-    border-radius: var(--border-radius);
-    padding: 0.6rem 0.9rem;
-    font-size: 0.85rem;
-    text-align: center;
-    margin-bottom: 1.5rem;
 }
 
 .choice-buttons {
@@ -319,10 +376,14 @@ header h1 {
     justify-content: center;
     align-items: center;
     position: relative;
-    padding: 2rem;
+    padding: calc(1.5rem + var(--seat-overhang)) calc(2rem + var(--seat-overhang));
+    padding-right: calc(2rem + var(--seat-overhang) + var(--sidebar-space));
+    padding-bottom: calc(1.5rem + var(--seat-overhang) + var(--deck-height));
 }
 
+/* Size is set inline by applyTableSize; these only cover the frame before it runs. */
 .poker-table {
+    flex: none;
     width: 600px;
     height: 400px;
     position: relative;
@@ -351,9 +412,51 @@ header h1 {
 .round-status {
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
-    padding: 1rem 2rem;
+    padding: 0.9rem 2rem 1rem;
     border-radius: 50px;
     border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+/* A flat felt leaves little room down the middle - the centre block has to give. */
+.poker-table.short .round-status {
+    padding: 0.5rem 1.4rem 0.6rem;
+}
+
+.poker-table.short .status-text {
+    font-size: 1rem;
+}
+
+.poker-table.short .average-display-center {
+    margin-top: 0.5rem;
+}
+
+.poker-table.short .average-display-center .average-value {
+    font-size: 2rem;
+}
+
+.poker-table.short .average-display-center .average-label {
+    font-size: 0.85rem;
+    margin-top: 0.2rem;
+}
+
+.vote-progress {
+    height: 4px;
+    margin-top: 0.6rem;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.vote-progress-bar {
+    width: 0;
+    height: 100%;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.75);
+    transition: width 0.35s ease, background 0.35s ease;
+}
+
+.vote-progress-bar.complete {
+    background: var(--secondary-color);
 }
 
 .status-text {
@@ -367,30 +470,33 @@ header h1 {
    User Cards Around Table
    ====================================== */
 .user-cards {
+    --seat-scale: 1;
+    --seat-card-width: 60px;
+    --seat-card-height: 90px;
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    height: 100%;
+    inset: 0;
     pointer-events: none;
 }
 
+/* Zero width so a seat centres on its point on the rim however wide the name tag is;
+   the negative margin does the same vertically, since the anchor is the wrapper's top edge. */
 .user-card-wrapper {
     position: absolute;
     top: 50%;
     left: 50%;
+    width: 0;
+    margin-top: calc(var(--seat-card-height) * var(--seat-scale) / -2);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    transition: all 0.3s ease;
+    gap: calc(0.45rem * var(--seat-scale));
+    transition: transform 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .player-card {
-    width: 60px;
-    height: 90px;
-    border-radius: 8px;
+    width: calc(var(--seat-card-width) * var(--seat-scale));
+    height: calc(var(--seat-card-height) * var(--seat-scale));
+    border-radius: calc(8px * var(--seat-scale));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -416,23 +522,32 @@ header h1 {
 
 .player-card .card-back {
     color: white;
-    font-size: 1.5rem;
+    font-size: calc(1.5rem * var(--seat-scale));
 }
 
 .player-card .card-value {
     color: white;
-    font-size: 1.8rem;
+    font-size: calc(1.8rem * var(--seat-scale));
     font-weight: bold;
 }
 
 .user-card-wrapper .user-name {
     color: white;
-    font-size: 0.85rem;
+    font-size: calc(0.85rem * var(--seat-scale));
     font-weight: 600;
+    white-space: nowrap;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
-    background: rgba(26, 26, 46, 0.8);
-    padding: 0.2rem 0.6rem;
+    background: rgba(26, 26, 46, 0.85);
+    padding: calc(0.2rem * var(--seat-scale)) calc(0.6rem * var(--seat-scale));
     border-radius: 4px;
+}
+
+.user-card-wrapper.name-above .user-name {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: calc(0.45rem * var(--seat-scale));
 }
 
 .user-card-wrapper .user-name.current-user {
@@ -447,20 +562,60 @@ header h1 {
     right: 20px;
     top: 50%;
     transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
     background: rgba(26, 26, 46, 0.95);
     backdrop-filter: blur(10px);
     border-radius: var(--border-radius);
-    padding: 1.5rem;
+    padding: 1.25rem;
     box-shadow: var(--shadow-lg);
-    min-width: 200px;
-    max-height: 400px;
-    overflow-y: auto;
+    width: 210px;
+    /* Centred on the viewport, so clearing the fixed deck costs twice its height. */
+    max-height: min(640px, calc(100vh - 2 * var(--deck-height) - 40px));
 }
 
 .user-list h3 {
-    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.9rem;
     color: var(--text-primary);
     font-size: 1.1rem;
+}
+
+.user-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+}
+
+.user-count.full {
+    color: #fff;
+    background: var(--danger-color);
+    border-color: transparent;
+}
+
+#user-list-items {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    margin-right: -0.4rem;
+    padding-right: 0.4rem;
+}
+
+#user-list-items::-webkit-scrollbar {
+    width: 6px;
+}
+
+#user-list-items::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
 }
 
 .user-list-item {
@@ -470,7 +625,25 @@ header h1 {
     padding: 0.5rem;
     border-radius: 4px;
     transition: background 0.2s ease;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+
+.user-list-item .user-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Past ten players the roster has to earn its height back. */
+#user-list-items.dense .user-list-item {
+    padding: 0.28rem 0.4rem;
+    margin-bottom: 0.15rem;
+    font-size: 0.85rem;
+}
+
+#user-list-items.dense .user-status {
+    width: 16px;
+    height: 16px;
 }
 
 .user-list-item:hover {
@@ -500,18 +673,38 @@ header h1 {
 
 .btn-make-host {
     margin-left: auto;
-    padding: 0.25rem 0.5rem;
-    background: var(--primary-color);
+    flex: none;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
     color: white;
     border: none;
-    border-radius: 4px;
-    font-size: 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1;
     cursor: pointer;
+    opacity: 0.55;
     transition: all 0.2s ease;
 }
 
 .btn-make-host:hover {
-    background: #2980b9;
+    background: var(--primary-color);
+    opacity: 1;
+}
+
+/* Twenty crowns in a column read as noise, and as duplicates of the host badge. */
+@media (hover: hover) {
+    .btn-make-host {
+        opacity: 0;
+    }
+
+    .user-list-item:hover .btn-make-host,
+    .btn-make-host:focus-visible {
+        opacity: 0.85;
+    }
 }
 
 /* ======================================
@@ -671,6 +864,50 @@ header h1 {
 /* ======================================
    Responsive Design
    ====================================== */
+@media (max-width: 1100px) {
+    :root {
+        --sidebar-space: 0px;
+    }
+
+    .user-list {
+        position: static;
+        transform: none;
+        width: auto;
+        max-height: 190px;
+        margin: 0 1rem;
+        padding: 0.9rem 1rem;
+        order: -1;
+    }
+
+    #user-list-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 0 0.5rem;
+    }
+
+    .user-list-item {
+        margin-bottom: 0.2rem;
+    }
+
+    .table-container {
+        padding: var(--seat-overhang) calc(1rem + var(--seat-overhang));
+        padding-bottom: calc(var(--seat-overhang) + var(--deck-height));
+    }
+}
+
+@media (max-width: 900px) {
+    .join-form {
+        flex-direction: column-reverse;
+        gap: 1.5rem;
+    }
+
+    .changelog {
+        position: static;
+        width: 100%;
+        max-width: 400px;
+    }
+}
+
 @media (max-width: 768px) {
     header {
         flex-direction: column;
@@ -682,32 +919,21 @@ header h1 {
         font-size: 1.5rem;
     }
     
-    .poker-table {
-        width: 90vw;
-        max-width: 400px;
-        height: 280px;
-    }
-    
     .table-felt {
         border-width: 12px;
     }
     
-    .player-card {
-        width: 45px;
-        height: 65px;
+    .user-cards {
+        --seat-card-width: 46px;
+        --seat-card-height: 68px;
     }
     
     .player-card .card-value {
-        font-size: 1.2rem;
+        font-size: calc(1.2rem * var(--seat-scale));
     }
     
-    .user-list {
-        position: static;
-        transform: none;
-        width: 100%;
-        max-height: 200px;
-        margin: 1rem;
-        order: -1;
+    .player-card .card-back {
+        font-size: calc(1.1rem * var(--seat-scale));
     }
     
     .deck-card {
@@ -729,8 +955,17 @@ header h1 {
         font-size: 0.9rem;
     }
     
+    :root {
+        --seat-overhang: 58px;
+    }
+    
+    .user-list {
+        max-height: 150px;
+    }
+    
     .table-container {
-        padding: 1rem;
+        padding: var(--seat-overhang) calc(0.5rem + var(--seat-overhang));
+        padding-bottom: calc(var(--seat-overhang) + var(--deck-height));
     }
     
     .notification {
@@ -743,23 +978,22 @@ header h1 {
 }
 
 @media (max-width: 480px) {
-    .poker-table {
-        width: 85vw;
-        height: 240px;
+    :root {
+        --seat-overhang: 42px;
     }
     
-    .player-card {
-        width: 35px;
-        height: 50px;
+    .user-cards {
+        --seat-card-width: 36px;
+        --seat-card-height: 52px;
     }
     
     .player-card .card-value {
-        font-size: 1rem;
+        font-size: calc(1rem * var(--seat-scale));
     }
     
     .user-card-wrapper .user-name {
-        font-size: 0.7rem;
-        padding: 0.15rem 0.4rem;
+        font-size: calc(0.7rem * var(--seat-scale));
+        padding: calc(0.15rem * var(--seat-scale)) calc(0.4rem * var(--seat-scale));
     }
     
     .deck-card {
@@ -776,6 +1010,11 @@ header h1 {
    Print Styles
    ====================================== */
 @media print {
+    :root {
+        --sidebar-space: 0px;
+        --deck-height: 0px;
+    }
+
     body {
         background: white;
         color: black;

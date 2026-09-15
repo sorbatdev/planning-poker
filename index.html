@@ -27,12 +27,18 @@
 
         <!-- Login/Join Section -->
         <div id="join-form" class="join-form">
+            <aside class="changelog">
+                <h3>What's new <span class="changelog-version">v1.0</span></h3>
+                <ul>
+                    <li>Rooms now seat up to 20 players</li>
+                    <li>Table, cards and roster scale to the group</li>
+                    <li>Live vote progress on the table</li>
+                    <li>Custom card decks, shared with everyone</li>
+                </ul>
+            </aside>
+
             <div class="form-card">
                 <h2>Start Your Session</h2>
-
-                <div class="notice-banner">
-                    ⚠️ Existing rooms will be cleared on <strong>July 31st</strong> — you'll need to create a new one.
-                </div>
 
                 <!-- Initial choice buttons -->
                 <div id="choice-buttons" class="choice-buttons">
@@ -84,17 +90,20 @@
                         <div id="table-center" class="table-center">
                             <div id="round-status" class="round-status">
                                 <span class="status-text">Choose your card</span>
+                                <div class="vote-progress">
+                                    <div id="vote-progress-bar" class="vote-progress-bar"></div>
+                                </div>
                             </div>
                             <div id="average-display" class="average-display-center"></div>
                         </div>
                     </div>
+                    <div id="user-cards" class="user-cards"></div>
                 </div>
-                <div id="user-cards" class="user-cards"></div>
             </div>
 
             <!-- User List Sidebar -->
             <div id="user-list" class="user-list">
-                <h3>Players</h3>
+                <h3>Players <span id="user-count" class="user-count"></span></h3>
                 <div id="user-list-items"></div>
             </div>
 
@@ -148,7 +157,26 @@
         // Populated from Firebase ('granularityTemplates/{key}': { name, values }).
         let granularityTemplates = {};
 
-        const maxPlayers = 10;
+        const maxPlayers = 20;
+
+        // Rim length one seat needs before neighbours touch: card height plus gap plus name tag,
+        // which is what binds at the ends of the major axis where seats stack vertically.
+        const seatSlot = 120;
+        const minSeatScale = 0.6;
+
+        // Felt grows with the crowd so twenty seats still get their slot on the rim.
+        const tableSizes = [
+            { upTo: 6, width: 600, height: 400 },
+            { upTo: 10, width: 700, height: 430 },
+            { upTo: 15, width: 830, height: 470 },
+            { upTo: maxPlayers, width: 960, height: 520 }
+        ];
+
+        const minTableWidth = 240;
+        const minTableHeight = 170;
+
+        // Below this the felt is too flat for the full-size status pill and average.
+        const shortTableHeight = 330;
 
         // ======================================
         //           DOM Elements Cache
@@ -161,9 +189,13 @@
                 gameArea: document.getElementById('game-area'),
                 sessionInfo: document.getElementById('session-info'),
                 userCards: document.getElementById('user-cards'),
+                pokerTable: document.getElementById('poker-table'),
+                cardDeck: document.getElementById('card-deck'),
                 userListItems: document.getElementById('user-list-items'),
+                userCount: document.getElementById('user-count'),
                 averageDisplay: document.getElementById('average-display'),
                 roundStatus: document.querySelector('.status-text'),
+                voteProgress: document.getElementById('vote-progress-bar'),
                 deckContainer: document.querySelector('.deck-container'),
                 choiceButtons: document.getElementById('choice-buttons'),
                 createForm: document.getElementById('create-form'),
@@ -177,7 +209,11 @@
         //           Utility Functions
         // ======================================
         function generateId(length = 6) {
-            return Math.random().toString(36).substring(2, 2 + length).toUpperCase();
+            let id = '';
+            while (id.length < length) {
+                id += Math.random().toString(36).slice(2).toUpperCase();
+            }
+            return id.slice(0, length);
         }
 
         function showCreate() {
@@ -278,11 +314,19 @@
                 return;
             }
 
+            if (values.length > 300) {
+                showNotification('Value set must be 300 characters or fewer', 'error');
+                return;
+            }
+
             const newRef = db.ref('granularityTemplates').push();
             newRef.set({ name, values }).then(() => {
                 nameInput.value = '';
                 valuesInput.value = '';
                 document.getElementById('custom-granularity-fields').style.display = 'none';
+
+                granularityTemplates[newRef.key] = { name, values };
+                renderGranularityOptions();
                 const select = document.getElementById('granularity-select');
                 if (select) select.value = newRef.key;
                 showNotification('Custom granularity saved!', 'success');
@@ -410,10 +454,23 @@
 
             elements.joinForm.style.display = 'none';
             elements.gameArea.style.display = 'flex';
+            trackDeckHeight();
+            window.addEventListener('resize', renderUserCards);
             elements.sessionInfo.innerHTML = `
                 <span class="session-id">Session: <strong>${state.sessionId}</strong></span>
                 <button class="btn-copy" onclick="copySessionId()">Copy ID</button>
             `;
+        }
+
+        // Deck wraps to several rows on wide decks; the table needs to know how much it eats.
+        function trackDeckHeight() {
+            const apply = () => document.documentElement.style
+                .setProperty('--deck-height', `${elements.cardDeck.offsetHeight}px`);
+
+            if (window.ResizeObserver) {
+                new ResizeObserver(apply).observe(elements.cardDeck);
+            }
+            apply();
         }
 
         function copySessionId() {
@@ -466,8 +523,8 @@
 
                 updateControls();
                 updateRoundStatus();
-                renderUserCards();
                 renderUserList(data.host);
+                renderUserCards();
 
                 if (state.isRevealed && data.average) {
                     elements.averageDisplay.style.display = 'block';
@@ -500,6 +557,9 @@
             const totalUsers = Object.keys(state.users).length;
             const usersVoted = Object.values(state.users).filter(u => u.choice).length;
 
+            elements.voteProgress.style.width = totalUsers ? `${(usersVoted / totalUsers) * 100}%` : '0%';
+            elements.voteProgress.classList.toggle('complete', usersVoted === totalUsers && totalUsers > 0);
+
             if (state.isRevealed) {
                 elements.roundStatus.textContent = 'Cards Revealed!';
             } else if (usersVoted === 0) {
@@ -514,76 +574,134 @@
         // ======================================
         //           Card Rendering
         // ======================================
+        // Ramanujan's approximation - the exact perimeter needs an elliptic integral.
+        function ellipsePerimeter(a, b) {
+            return Math.PI * (3 * (a + b) - Math.sqrt((3 * a + b) * (a + 3 * b)));
+        }
+
+        // Equal angle steps bunch seats at the ends of the major axis, so walk the rim by arc
+        // length instead. Sampled rather than solved: no closed form for the inverse.
+        function rimAngles(radiusX, radiusY, count) {
+            const steps = 1080;
+            const angleAt = i => (i / steps) * 2 * Math.PI - Math.PI / 2;
+            const arc = [0];
+
+            for (let i = 1; i <= steps; i++) {
+                const dx = radiusX * (Math.cos(angleAt(i)) - Math.cos(angleAt(i - 1)));
+                const dy = radiusY * (Math.sin(angleAt(i)) - Math.sin(angleAt(i - 1)));
+                arc.push(arc[i - 1] + Math.hypot(dx, dy));
+            }
+
+            const angles = [];
+            let step = 0;
+            for (let seat = 0; seat < count; seat++) {
+                const target = (seat / count) * arc[steps];
+                while (step < steps && arc[step + 1] < target) step++;
+                angles.push(angleAt(step));
+            }
+            return angles;
+        }
+
+        // Space the felt may occupy. Height comes off the viewport rather than the container's
+        // own box - the container is sized by its content, so asking it would be circular.
+        function availableTableBox() {
+            const container = elements.pokerTable.parentElement;
+            const styles = getComputedStyle(container);
+            const pad = side => parseFloat(styles.getPropertyValue(`padding-${side}`)) || 0;
+
+            return {
+                width: container.clientWidth - pad('left') - pad('right'),
+                height: window.innerHeight - container.getBoundingClientRect().top - pad('top') - pad('bottom')
+            };
+        }
+
+        function applyTableSize(totalUsers) {
+            const size = tableSizes.find(entry => totalUsers <= entry.upTo) || tableSizes[tableSizes.length - 1];
+            const box = availableTableBox();
+            const height = Math.max(Math.min(size.height, box.height), minTableHeight);
+
+            elements.pokerTable.style.width = `${Math.max(Math.min(size.width, box.width), minTableWidth)}px`;
+            elements.pokerTable.style.height = `${height}px`;
+            elements.pokerTable.classList.toggle('short', height < shortTableHeight);
+        }
+
+        function seatGeometry(totalUsers) {
+            const radiusX = elements.pokerTable.offsetWidth / 2;
+            const radiusY = elements.pokerTable.offsetHeight / 2;
+            const slot = ellipsePerimeter(radiusX, radiusY) / Math.max(totalUsers, 1);
+            const scale = Math.min(1, Math.max(minSeatScale, slot / seatSlot));
+            return { radiusX, radiusY, scale };
+        }
+
+        function paintSeatCard(card, user) {
+            if (!user.choice) {
+                card.classList.add('waiting');
+                card.innerHTML = '<div class="card-back">🎴</div>';
+                return;
+            }
+
+            if (!state.isRevealed) {
+                card.classList.add('selected');
+                card.innerHTML = '<div class="card-back">✓</div>';
+                return;
+            }
+
+            card.classList.add('revealed');
+            card.style.background = getCardColor(user.choice);
+            card.innerHTML = `<div class="card-value">${user.choice}</div>`;
+        }
+
+        function buildSeat(uid, user) {
+            const seat = document.createElement('div');
+            seat.className = 'user-card-wrapper';
+
+            const card = document.createElement('div');
+            card.className = 'player-card';
+            paintSeatCard(card, user);
+
+            const userName = document.createElement('div');
+            userName.className = 'user-name';
+            userName.textContent = user.name;
+            if (uid === state.userId) {
+                userName.classList.add('current-user');
+            }
+
+            seat.appendChild(card);
+            seat.appendChild(userName);
+            return seat;
+        }
+
         function renderUserCards() {
             if (!elements.userCards) return;
 
-            elements.userCards.innerHTML = '';
             const userList = Object.entries(state.users);
-            const totalUsers = userList.length;
+            applyTableSize(userList.length);
+
+            const { radiusX, radiusY, scale } = seatGeometry(userList.length);
+            const angles = rimAngles(radiusX, radiusY, userList.length);
+            elements.userCards.style.setProperty('--seat-scale', scale.toFixed(3));
+            elements.userCards.innerHTML = '';
 
             userList.forEach(([uid, user], index) => {
-                // Assuming table dimensions from CSS
-                const tableWidth = 600;
-                const tableHeight = 400;
-
-                // Your original radius (adjusted for elliptical shape)
-                const radiusY = 200; // This acts as the semi-minor axis (vertical radius)
-
-                // Calculate the aspect ratio of the table (width / height)
-                const aspectRatio = tableWidth / tableHeight;
-
-                // Derive the semi-major axis (horizontal radius) to maintain the elliptical proportions
-                const radiusX = radiusY * aspectRatio;
-
-                // For each user (index from 0 to totalUsers - 1)
-                const angle = (index * (360 / totalUsers)) - 90; // In degrees, starting from top
-                const rad = angle * Math.PI / 180; // Convert to radians
-
-                // Parametric equations for ellipse
-                const x = (radiusX * Math.cos(rad)) - 33;
-                const y = (radiusY * Math.sin(rad)) - 33;
-
-                const cardWrapper = document.createElement('div');
-                cardWrapper.className = 'user-card-wrapper';
-                cardWrapper.style.transform = `translate(${x}px, ${y}px)`;
-
-                // User name
-                const userName = document.createElement('div');
-                userName.className = 'user-name';
-                userName.textContent = user.name;
-                if (uid === state.userId) {
-                    userName.classList.add('current-user');
-                }
-
-                // Card
-                const card = document.createElement('div');
-                card.className = 'player-card';
-
-                if (!user.choice) {
-                    card.classList.add('waiting');
-                    card.innerHTML = '<div class="card-back">🎴</div>';
-                } else if (!state.isRevealed) {
-                    card.classList.add('selected');
-                    card.innerHTML = '<div class="card-back">✓</div>';
-                } else {
-                    card.classList.add('revealed');
-                    const color = getCardColor(user.choice);
-                    card.style.background = color;
-                    card.innerHTML = `<div class="card-value">${user.choice}</div>`;
-                }
-
-                cardWrapper.appendChild(card);
-                cardWrapper.appendChild(userName);
-                elements.userCards.appendChild(cardWrapper);
+                const rad = angles[index];
+                const seat = buildSeat(uid, user);
+                // name tags face away from the felt, or the top row covers the centre readout
+                seat.classList.toggle('name-above', Math.sin(rad) < 0);
+                seat.style.transform = `translate(${radiusX * Math.cos(rad)}px, ${radiusY * Math.sin(rad)}px)`;
+                elements.userCards.appendChild(seat);
             });
         }
 
         function renderUserList(hostId) {
             if (!elements.userListItems) return;
 
+            const entries = Object.entries(state.users);
+            elements.userCount.textContent = `${entries.length}/${maxPlayers}`;
+            elements.userCount.classList.toggle('full', entries.length >= maxPlayers);
+            elements.userListItems.classList.toggle('dense', entries.length > 10);
             elements.userListItems.innerHTML = '';
 
-            Object.entries(state.users).forEach(([uid, user]) => {
+            entries.forEach(([uid, user]) => {
                 const listItem = document.createElement('div');
                 listItem.className = 'user-list-item';
 
@@ -598,8 +716,8 @@
                     <span class="user-status ${user.choice ? 'voted' : 'waiting'}">${statusIcon}</span>
                     <span class="user-name">${user.name}${hostBadge}</span>
                     ${state.isHost && uid !== state.userId ? `
-                        <button class="btn-make-host" onclick="transferHost('${uid}')">
-                            Make Host
+                        <button class="btn-make-host" onclick="transferHost('${uid}')" title="Make host">
+                            👑
                         </button>
                     ` : ''}
                 `;
